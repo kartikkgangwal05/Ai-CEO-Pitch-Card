@@ -1,28 +1,45 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      window.addEventListener(
+        'error',
+        function (event) {
+          var src = (event && event.filename) || '';
+          var msg = (event && event.message) || '';
+          if (
+            src.indexOf('chrome-extension://') === 0 ||
+            msg.indexOf('Cannot set property fetch of #<Window>') !== -1
+          ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        },
+        true
+      );
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Pitch Card — #DYPAICoE Launch Booth</title>
     <meta
       name="description"
-      content="90-second PGDM placement pitch card, plain-text QR generator, voice coach, and A6 print booth for the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune."
+      content="90-second placement & leadership pitch card with camera-to-AI character generation, plain-text QR generator, voice coach, and 2.5 x 3.5 in (63.5 x 88.9 mm) collector card print booth for the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune."
     />
     <meta property="og:title" content="My Pitch Card — #DYPAICoE Launch Booth" />
     <meta
       property="og:description"
-      content="90-second PGDM placement pitch card, plain-text QR generator, voice coach, and A6 print booth for the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune."
+      content="90-second placement & leadership pitch card with camera-to-AI character generation, plain-text QR generator, voice coach, and 2.5 x 3.5 in (63.5 x 88.9 mm) collector card print booth for the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune."
     />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Bungee&family=JetBrains+Mono:wght@400;500;600&family=Luckiest+Guy&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Righteous&family=Syne:wght@700;800&family=Titan+One&display=swap"
       rel="stylesheet"
     />
   </head>
-  <body class="bg-[#EEF2F7] text-[#0F172A] antialiased">
+  <body class="bg-[#030712] text-white antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
