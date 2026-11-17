@@ -1,0 +1,6 @@
+{
+  "name": "My Pitch Card",
+  "description": "90-second PGDM placement pitch card, plain-text QR generator, voice coach, and 4-up A6 print booth for the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

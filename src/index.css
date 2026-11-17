@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+    --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    --brand-navy: #0f1a33;
+    --brand-orange: #f06429;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: #0f172a;
+    background-color: #eef2f7;
+    background-image: radial-gradient(rgba(15, 26, 51, 0.055) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono-nums {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Single A6 (105 x 148 mm) Collectible Card Print Rules */
+@page {
+  size: 105mm 148mm;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    width: 105mm;
+    height: 148mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    background-image: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only-single-card {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 !important;
+    width: 105mm !important;
+    height: 148mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    page-break-after: avoid;
+    break-inside: avoid;
+  }
+}
