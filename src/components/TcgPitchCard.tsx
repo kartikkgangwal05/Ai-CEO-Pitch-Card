@@ -1,6 +1,7 @@
 import type { VisitorCard } from '../types/pitch';
 import { getCharacterById } from '../utils/characters';
 import { TCG_THEMES, getPersona, getStickerFontClass } from '../utils/pitch';
+import { photoFilterLabel } from '../utils/photoFilters';
 import { CharacterIllustrationSvg } from './CharacterIllustrationSvg';
 
 interface TcgPitchCardProps {
@@ -347,7 +348,7 @@ export function TcgPitchCard({ card, mode = 'preview', side = 'front' }: TcgPitc
                 : card.aiCharacterUrl
                   ? card.cartoonStyle === 'pencil-sketch'
                     ? 'SKETCH EDITION'
-                    : 'CARTOON EDITION'
+                    : `${photoFilterLabel(card.cartoonStyle).toUpperCase()} EDITION`
                   : character.label}
             </div>
           </div>

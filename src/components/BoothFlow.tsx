@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, ArrowRight, Camera, ImageUp, Settings2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, ImageUp, Settings2, Sparkles } from 'lucide-react';
 import type { CartoonStyleId, PersonaId } from '../types/pitch';
-import { CARTOON_STYLE_OPTIONS, PERSONA_OPTIONS } from '../utils/pitch';
-import { CLAUDE_STYLES, type ArtEngine } from '../utils/claudeStyles';
+import { PERSONA_OPTIONS } from '../utils/pitch';
+import { PHOTO_FILTERS, applyPhotoFilter } from '../utils/photoFilters';
 import { playTick } from '../utils/sfx';
 import { PowersStep, type Powers } from './PowersStep';
 
-/** What the booth hands back once the person is scanned. */
+/** What the booth hands back when the person taps "Create my card". */
 export interface BoothResult {
   name: string;
   photoDataUrl: string;
+  /** The filtered photo, already framed for the card. */
+  portraitUrl: string;
   cartoonStyle: CartoonStyleId;
   personaId: PersonaId;
   /** One-word stats picked in the booth; empty string means the AI decides. */
@@ -26,24 +28,18 @@ interface BoothFlowProps {
   paused?: boolean;
 }
 
-type Step = 'attract' | 'name' | 'style' | 'powers' | 'scan';
+type Step = 'attract' | 'name' | 'scan' | 'style' | 'powers';
 const STEPS: { id: Exclude<Step, 'attract'>; label: string }[] = [
   { id: 'name', label: 'Identify' },
-  { id: 'style', label: 'Form' },
-  { id: 'powers', label: 'Powers' },
   { id: 'scan', label: 'Scan' },
+  { id: 'style', label: 'Filter' },
+  { id: 'powers', label: 'Powers' },
 ];
-
-const STYLES = CARTOON_STYLE_OPTIONS.filter((s) => s.modern);
-const geminiThumb = (id: string) => `/styles/${id}.jpg`;
-/** Server-rendered sample avatar (Claude engine) so tiles show exactly the look people will get. */
-const claudeThumb = (id: string, seed = 'Power Card') => `/api/style-preview/${id}.svg?seed=${encodeURIComponent(seed)}`;
-const SAMPLE_SEEDS = ['Asha', 'Kabir', 'Meera', 'Arjun', 'Zoya', 'Ravi'];
 
 /** Square, mirrored (selfie) JPEG from the live video or an uploaded image. */
 function squareJpeg(source: CanvasImageSource, w: number, h: number, mirror: boolean): string {
   const side = Math.min(w, h);
-  const size = Math.min(900, side);
+  const size = Math.min(1080, side);
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -53,7 +49,7 @@ function squareJpeg(source: CanvasImageSource, w: number, h: number, mirror: boo
     ctx.scale(-1, 1);
   }
   ctx.drawImage(source, (w - side) / 2, (h - side) / 2, side, side, 0, 0, size, size);
-  return canvas.toDataURL('image/jpeg', 0.9);
+  return canvas.toDataURL('image/jpeg', 0.92);
 }
 
 function HudFrame({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -78,31 +74,28 @@ const stepMotion = {
 };
 
 /**
- * Full-screen sci-fi kiosk: attract screen → codename → art style (+ optional class) → face scan.
- * Three inputs total; the AI invents the title, intro and one-word stats.
+ * Full-screen sci-fi kiosk: attract → name → face scan → pick a filter on your own photo → powers.
+ * The AI writes the title, intro and any stats left on "AI decides".
  */
 export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlowProps) {
   const [step, setStep] = useState<Step>('attract');
   const [name, setName] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<Partial<Record<CartoonStyleId, string>>>({});
   const [styleId, setStyleId] = useState<CartoonStyleId>('bold-toon');
   const [personaId, setPersonaId] = useState<PersonaId>('none');
   const [powers, setPowers] = useState<Powers>({ strength: '', weakness: '', hobby: '' });
-  const [aiStatus, setAiStatus] = useState<{ online: boolean; model: string | null; engine: ArtEngine } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [aiOnline, setAiOnline] = useState<boolean | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch('/api/health')
       .then((r) => r.json())
-      .then((h) =>
-        setAiStatus({
-          engine: h.imageEngine === 'gemini' ? 'gemini' : 'claude',
-          online: h.imageEngine === 'gemini' ? Boolean(h.geminiConfigured) : Boolean(h.anthropicConfigured),
-          model: h.imageModel ?? null,
-        })
-      )
-      .catch(() => setAiStatus({ online: false, model: null, engine: 'claude' }));
+      .then((h) => setAiOnline(Boolean(h.anthropicConfigured || h.geminiConfigured)))
+      .catch(() => setAiOnline(false));
   }, []);
-  const [missingThumbs, setMissingThumbs] = useState<Set<string>>(new Set());
-  const rootRef = useRef<HTMLDivElement>(null);
+
   // Ignore keys briefly after an overlay closes so one press never does two things.
   const ignoreKeysUntil = useRef(0);
   useEffect(() => {
@@ -117,11 +110,32 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
     }
   }, [step]);
 
+  // Render all six filters on the visitor's own photo (small previews, one after another).
+  useEffect(() => {
+    if (!photo) return;
+    let cancelled = false;
+    setPreviews({});
+    (async () => {
+      for (const f of PHOTO_FILTERS) {
+        const url = await applyPhotoFilter(photo, f.id, 480).catch(() => '');
+        if (cancelled) return;
+        if (url) setPreviews((prev) => ({ ...prev, [f.id]: url }));
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [photo]);
+
   const reset = useCallback(() => {
     setStep('attract');
     setName('');
+    setPhoto(null);
+    setPreviews({});
     setPersonaId('none');
     setPowers({ strength: '', weakness: '', hobby: '' });
+    setCreating(false);
   }, []);
 
   const go = (next: Step) => {
@@ -129,14 +143,15 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
     setStep(next);
   };
 
-  const markMissing = (id: string) => setMissingThumbs((prev) => new Set(prev).add(id));
-  const engine: ArtEngine = aiStatus?.engine ?? 'claude';
-  const thumb = (id: string, seed?: string) => (engine === 'claude' ? claudeThumb(id, seed) : geminiThumb(id));
-  const styleText = (s: (typeof STYLES)[number]) =>
-    engine === 'claude' ? { label: CLAUDE_STYLES[s.id]?.label ?? s.label, blurb: CLAUDE_STYLES[s.id]?.blurb ?? s.blurb } : { label: s.label, blurb: s.blurb };
-  const availableThumbs = STYLES.filter((s) => engine === 'claude' || !missingThumbs.has(s.id));
+  const create = async () => {
+    if (!photo || creating) return;
+    setCreating(true);
+    const portraitUrl = await applyPhotoFilter(photo, styleId, 960).catch(() => previews[styleId] ?? photo);
+    onComplete({ name: name.trim(), photoDataUrl: photo, portraitUrl, cartoonStyle: styleId, personaId, ...powers });
+    reset();
+  };
 
-  // Global keys: Enter advances from the attract screen and the style step.
+  // Global keys: Enter advances, 1-6 pick a filter, Esc goes back.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (paused || Date.now() < ignoreKeysUntil.current) return;
@@ -145,19 +160,21 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
         go('name');
       } else if (step === 'style') {
         const n = Number(e.key);
-        if (n >= 1 && n <= STYLES.length) setStyleId(STYLES[n - 1].id);
+        if (n >= 1 && n <= PHOTO_FILTERS.length) setStyleId(PHOTO_FILTERS[n - 1].id);
         if (e.key === 'Enter') go('powers');
-        if (e.key === 'Escape') go('name');
+        if (e.key === 'Escape') go('scan');
       } else if (step === 'powers') {
-        if (e.key === 'Enter') go('scan');
+        if (e.key === 'Enter') void create();
         if (e.key === 'Escape') go('style');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [step, paused]);
+  });
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const filterLabel = PHOTO_FILTERS.find((f) => f.id === styleId)?.label ?? '';
+  const firstName = name.trim().split(/\s+/)[0];
 
   return (
     <div
@@ -188,7 +205,11 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
               <li key={s.id} className={`flex items-center gap-2 ${i <= stepIndex ? 'text-[#00D4FF]' : 'text-sky-700'}`}>
                 <span
                   className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] ${
-                    i < stepIndex ? 'border-[#00D4FF] bg-[#00D4FF] text-[#02040b]' : i === stepIndex ? 'border-[#00D4FF] shadow-[0_0_12px_rgba(0,212,255,0.8)]' : 'border-sky-800'
+                    i < stepIndex
+                      ? 'border-[#00D4FF] bg-[#00D4FF] text-[#02040b]'
+                      : i === stepIndex
+                        ? 'border-[#00D4FF] shadow-[0_0_12px_rgba(0,212,255,0.8)]'
+                        : 'border-sky-800'
                   }`}
                 >
                   {String(i + 1).padStart(2, '0')}
@@ -202,55 +223,63 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
           <span className="hidden sm:inline">System online</span>
         )}
         <div className="flex items-center gap-3">
-        {aiStatus && (
-          <span
-            title={aiStatus.model ? `Image model: ${aiStatus.model}` : undefined}
-            className={`hidden rounded-full border px-3 py-1.5 sm:inline ${
-              aiStatus.online ? 'border-emerald-400/40 text-emerald-300' : 'border-amber-400/50 text-amber-300'
-            }`}
+          {aiOnline !== null && (
+            <span
+              className={`hidden rounded-full border px-3 py-1.5 sm:inline ${
+                aiOnline ? 'border-emerald-400/40 text-emerald-300' : 'border-amber-400/50 text-amber-300'
+              }`}
+            >
+              {aiOnline ? '● AI online' : '○ AI offline'}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onOpenStudio}
+            className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 px-3 py-1.5 text-sky-300/80 hover:border-sky-300 hover:text-white cursor-pointer"
           >
-            {aiStatus.online
-              ? `● ${aiStatus.engine === 'claude' ? 'Claude' : 'Gemini'} art online`
-              : `○ AI offline · add ${aiStatus.engine === 'claude' ? 'ANTHROPIC_API_KEY' : 'GEMINI_API_KEY'}`}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={onOpenStudio}
-          className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 px-3 py-1.5 text-sky-300/80 hover:border-sky-300 hover:text-white cursor-pointer"
-        >
-          <Settings2 className="h-3.5 w-3.5" aria-hidden="true" /> Studio
-        </button>
+            <Settings2 className="h-3.5 w-3.5" aria-hidden="true" /> Studio
+          </button>
         </div>
       </header>
 
       <main className="relative z-10 flex h-[calc(100%-56px)] items-center justify-center px-6">
         <AnimatePresence mode="wait">
           {step === 'attract' && (
-            <motion.section key="attract" {...stepMotion} className="flex flex-col items-center text-center">
-              <AttractHologram
-                thumbs={availableThumbs.map((s, i) => thumb(s.id, SAMPLE_SEEDS[i]))}
-                onMissing={markMissing}
-                probe={engine === 'gemini' ? STYLES.map((s) => ({ id: s.id, url: geminiThumb(s.id) })) : []}
-              />
-              <h1 className="booth-glitch mt-10 font-display text-5xl font-extrabold tracking-tight sm:text-7xl" data-text="GET YOUR POWER CARD">
-                GET YOUR POWER CARD
-              </h1>
-              <p className="mt-4 max-w-xl text-base text-sky-200/80 sm:text-lg">
-                One scan. AI turns you into a collectible hero card in about 30 seconds.
-              </p>
-              <motion.button
-                type="button"
-                onClick={() => go('name')}
-                className="mt-10 rounded-full bg-[#00D4FF] px-10 py-4 font-display text-lg font-extrabold uppercase tracking-[0.2em] text-[#02040b] cursor-pointer"
-                animate={{ boxShadow: ['0 0 20px rgba(0,212,255,0.4)', '0 0 60px rgba(0,212,255,0.9)', '0 0 20px rgba(0,212,255,0.4)'] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                whileHover={{ scale: 1.06 }}
-                whileTap={{ scale: 0.96 }}
-              >
-                ▶ Initiate
-              </motion.button>
-              <p className="mt-4 font-mono-nums text-[11px] uppercase tracking-[0.3em] text-sky-500/70">Press Enter</p>
+            <motion.section key="attract" {...stepMotion} className="grid w-full max-w-6xl items-center gap-12 lg:grid-cols-2">
+              <div className="order-2 text-center lg:order-1 lg:text-left">
+                <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">#DYPAICoE · AI Power Cards</p>
+                <h1
+                  className="booth-glitch mt-4 font-display text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-7xl"
+                  data-text="GET YOUR POWER CARD"
+                >
+                  GET YOUR POWER CARD
+                </h1>
+                <p className="mt-5 max-w-md text-base text-sky-200/80 sm:text-lg lg:max-w-none">
+                  One scan. Pick a filter. AI writes your legend. A collectible card in about 30 seconds.
+                </p>
+                <ol className="mt-8 flex flex-wrap justify-center gap-2 font-mono-nums text-[11px] uppercase tracking-[0.2em] text-sky-300 lg:justify-start">
+                  {['Scan', 'Filter', 'Powers', 'Reveal'].map((label, i) => (
+                    <li key={label} className="rounded-full border border-sky-500/30 bg-[#061026]/70 px-3 py-1.5">
+                      <span className="text-[#00D4FF]">{i + 1}</span> {label}
+                    </li>
+                  ))}
+                </ol>
+                <motion.button
+                  type="button"
+                  onClick={() => go('name')}
+                  className="mt-10 rounded-full bg-[#00D4FF] px-10 py-4 font-display text-lg font-extrabold uppercase tracking-[0.2em] text-[#02040b] cursor-pointer"
+                  animate={{ boxShadow: ['0 0 20px rgba(0,212,255,0.4)', '0 0 60px rgba(0,212,255,0.9)', '0 0 20px rgba(0,212,255,0.4)'] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.96 }}
+                >
+                  ▶ Start
+                </motion.button>
+                <p className="mt-4 font-mono-nums text-[11px] uppercase tracking-[0.3em] text-sky-500/70">Press Enter</p>
+              </div>
+              <div className="order-1 flex justify-center lg:order-2">
+                <LiveMirrorCard />
+              </div>
             </motion.section>
           )}
 
@@ -261,7 +290,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
               className="flex w-full max-w-3xl flex-col items-center text-center"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (name.trim().length >= 2) go('style');
+                if (name.trim().length >= 2) go('scan');
               }}
             >
               <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">01 // Identify</p>
@@ -288,47 +317,66 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
             </motion.form>
           )}
 
+          {step === 'scan' && (
+            <motion.section key="scan" {...stepMotion} className="flex w-full max-w-5xl flex-col items-center">
+              <ScanStep
+                name={name.trim()}
+                styleLabel="Pick your filter"
+                personaLabel="Choose your powers"
+                onBack={() => go('name')}
+                onCaptured={(dataUrl) => {
+                  setPhoto(dataUrl);
+                  go('style');
+                }}
+              />
+            </motion.section>
+          )}
+
           {step === 'style' && (
             <motion.section key="style" {...stepMotion} className="flex w-full max-w-5xl flex-col items-center text-center">
-              <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">02 // Select your form</p>
+              <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">03 // Choose your filter</p>
               <h2 className="mt-3 font-display text-3xl font-extrabold sm:text-4xl">
-                Pick your look, <span className="text-[#00D4FF]">{name.trim().split(/\s+/)[0]}</span>
+                Looking good, <span className="text-[#00D4FF]">{firstName}</span>. Pick your vibe.
               </h2>
-              <div className="mt-8 grid w-full grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-6">
-                {STYLES.map((s, i) => {
-                  const active = s.id === styleId;
-                  const [bg, fg] = s.swatch ?? ['#0B1C3D', '#00D4FF'];
+              <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+                {PHOTO_FILTERS.map((f, i) => {
+                  const active = f.id === styleId;
+                  const src = previews[f.id];
                   return (
                     <motion.button
-                      key={s.id}
+                      key={f.id}
                       type="button"
-                      data-testid={`booth-style-${s.id}`}
+                      data-testid={`booth-style-${f.id}`}
                       onClick={() => {
                         playTick(false);
-                        setStyleId(s.id);
+                        setStyleId(f.id);
                       }}
                       aria-pressed={active}
                       className={`group relative overflow-hidden rounded-2xl border-2 text-left cursor-pointer ${
                         active ? 'border-[#00D4FF] shadow-[0_0_28px_rgba(0,212,255,0.65)]' : 'border-sky-900 hover:border-sky-400'
                       }`}
                       initial={{ opacity: 0, y: 24 }}
-                      animate={{ opacity: 1, y: 0, scale: active ? 1.04 : 1 }}
+                      animate={{ opacity: 1, y: 0, scale: active ? 1.03 : 1 }}
                       transition={{ delay: i * 0.05, type: 'spring', stiffness: 160, damping: 18 }}
-                      whileHover={{ y: -6 }}
+                      whileHover={{ y: -4 }}
                     >
-                      <div className="aspect-[3/4] w-full" style={{ background: `linear-gradient(160deg, ${bg}, ${fg})` }}>
-                        {(engine === 'claude' || !missingThumbs.has(s.id)) && (
-                          <img
-                            src={thumb(s.id, name.trim() || 'Power Card')}
+                      <div className="relative aspect-[4/3] w-full bg-[#061026]">
+                        {src ? (
+                          <motion.img
+                            src={src}
                             alt=""
-                            onError={() => markMissing(s.id)}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            className="h-full w-full object-cover"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.35 }}
                           />
+                        ) : (
+                          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-sky-900/40 to-violet-900/40" />
                         )}
                       </div>
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2.5 pb-2 pt-8">
-                        <p className="font-display text-sm font-extrabold leading-tight">{styleText(s).label}</p>
-                        <p className="text-[10px] text-sky-200/80">{styleText(s).blurb}</p>
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-2 pt-8">
+                        <p className="font-display text-sm font-extrabold leading-tight">{f.label}</p>
+                        <p className="text-[10px] text-sky-200/80">{f.blurb}</p>
                       </div>
                       <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 font-mono-nums text-[10px] text-sky-200">{i + 1}</span>
                       {active && (
@@ -344,7 +392,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                 })}
               </div>
 
-              <p className="mt-8 font-mono-nums text-[11px] uppercase tracking-[0.35em] text-sky-400/80">{engine === 'claude' ? 'Choose a class (sets your title & badge)' : 'Choose a class (optional)'}</p>
+              <p className="mt-6 font-mono-nums text-[11px] uppercase tracking-[0.35em] text-sky-400/80">Choose a class (sets your title & badge)</p>
               <div className="mt-3 flex max-w-4xl flex-wrap justify-center gap-2">
                 {PERSONA_OPTIONS.map((p) => {
                   const active = p.id === personaId;
@@ -358,7 +406,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                         setPersonaId(p.id);
                       }}
                       aria-pressed={active}
-                      className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-all cursor-pointer ${
+                      className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors cursor-pointer ${
                         active
                           ? 'border-[#00D4FF] bg-[#00D4FF] text-[#02040b] shadow-[0_0_18px_rgba(0,212,255,0.7)]'
                           : 'border-sky-800 bg-[#061026]/70 text-sky-100 hover:border-sky-400'
@@ -370,12 +418,12 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                 })}
               </div>
 
-              <div className="mt-8 flex items-center gap-4">
-                <button type="button" onClick={() => go('name')} className="booth-ghost-btn">
-                  <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
+              <div className="mt-6 flex items-center gap-4">
+                <button type="button" onClick={() => go('scan')} className="booth-ghost-btn">
+                  <Camera className="h-4 w-4" aria-hidden="true" /> Retake
                 </button>
                 <button type="button" onClick={() => go('powers')} className="booth-primary-btn">
-                  Lock in <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  Use {filterLabel} <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </motion.section>
@@ -383,7 +431,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
 
           {step === 'powers' && (
             <motion.section key="powers" {...stepMotion} className="flex w-full max-w-6xl flex-col items-center">
-              <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">03 // Choose your powers</p>
+              <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">04 // Choose your powers</p>
               <h2 className="mt-3 mb-8 text-center font-display text-3xl font-extrabold sm:text-4xl">What goes on your card?</h2>
               <PowersStep
                 name={name.trim()}
@@ -391,31 +439,16 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                 personaId={personaId}
                 powers={powers}
                 onChange={setPowers}
-                previewUrl={thumb(styleId, name.trim() || 'Power Card')}
+                previewUrl={previews[styleId] ?? photo ?? ''}
               />
               <div className="mt-8 flex items-center gap-4">
                 <button type="button" onClick={() => go('style')} className="booth-ghost-btn">
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
                 </button>
-                <button type="button" data-testid="booth-powers-next" onClick={() => go('scan')} className="booth-primary-btn">
-                  Scan my face <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                <button type="button" data-testid="booth-powers-next" onClick={() => void create()} disabled={creating} className="booth-primary-btn">
+                  <Sparkles className="h-4 w-4" aria-hidden="true" /> Create my card
                 </button>
               </div>
-            </motion.section>
-          )}
-
-          {step === 'scan' && (
-            <motion.section key="scan" {...stepMotion} className="flex w-full max-w-5xl flex-col items-center">
-              <ScanStep
-                name={name.trim()}
-                styleLabel={styleText(STYLES.find((s) => s.id === styleId) ?? STYLES[0]).label}
-                personaLabel={PERSONA_OPTIONS.find((p) => p.id === personaId)?.label ?? ''}
-                onBack={() => go('powers')}
-                onCaptured={(photoDataUrl) => {
-                  onComplete({ name: name.trim(), photoDataUrl, cartoonStyle: styleId, personaId, ...powers });
-                  reset();
-                }}
-              />
             </motion.section>
           )}
         </AnimatePresence>
@@ -424,65 +457,96 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   );
 }
 
-/** Rotating hologram card cycling through the style thumbnails. */
-function AttractHologram({
-  thumbs,
-  onMissing,
-  probe,
-}: {
-  thumbs: string[];
-  onMissing: (id: string) => void;
-  probe: { id: string; url: string }[];
-}) {
-  const [i, setI] = useState(0);
+/**
+ * Start screen hook: a holographic card showing the visitor's live camera with a neon look.
+ * Falls back to a glowing silhouette when there is no camera.
+ */
+function LiveMirrorCard() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [live, setLive] = useState(false);
+
   useEffect(() => {
-    const t = window.setInterval(() => setI((n) => n + 1), 1600);
-    return () => window.clearInterval(t);
+    let stream: MediaStream | null = null;
+    let cancelled = false;
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }, audio: false })
+      .then((s) => {
+        if (cancelled) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        stream = s;
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+          void videoRef.current.play().catch(() => {});
+        }
+        setLive(true);
+      })
+      .catch(() => setLive(false));
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((t) => t.stop());
+    };
   }, []);
-  const src = thumbs.length ? thumbs[i % thumbs.length] : null;
 
   return (
-    <div className="relative" style={{ perspective: 900 }}>
+    <div className="relative" style={{ perspective: 1000 }}>
       <motion.div
         aria-hidden="true"
-        className="absolute left-1/2 top-1/2 h-[340px] w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-[#00D4FF]/40"
+        className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-[#00D4FF]/35"
         animate={{ rotate: 360 }}
-        transition={{ duration: 24, repeat: Infinity, ease: 'linear' }}
+        transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
       />
       <motion.div
-        className="relative h-[252px] w-[180px] overflow-hidden rounded-2xl border-2 border-[#00D4FF]/80 bg-[#061430] shadow-[0_0_60px_rgba(0,212,255,0.55)]"
-        animate={{ rotateY: [-18, 18, -18], y: [0, -10, 0] }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+        className="relative h-[360px] w-[257px] overflow-hidden rounded-[18px] border-2 border-[#00D4FF]/80 bg-[#061430] p-2.5 shadow-[0_0_70px_rgba(0,212,255,0.5)]"
+        animate={{ rotateY: [-10, 10, -10], y: [0, -10, 0] }}
+        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
       >
-        <AnimatePresence mode="popLayout">
-          {src ? (
-            <motion.img
-              key={src}
-              src={src}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              initial={{ opacity: 0, scale: 1.15 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.6 }}
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-6xl">🦸</div>
+        <div className="flex items-center justify-between px-1 font-mono-nums text-[9px] uppercase tracking-[0.2em] text-sky-300">
+          <span className="rounded bg-[#00D4FF] px-1.5 py-0.5 text-[#02040b]">Power Card</span>
+          <span>#??? · Legend</span>
+        </div>
+        <p className="mt-1.5 px-1 font-display text-lg font-extrabold leading-tight">This could be you</p>
+        <div className="relative mt-2 h-[200px] overflow-hidden rounded-xl border border-[#00D4FF]/60 bg-gradient-to-br from-violet-900 to-sky-900">
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            className={`h-full w-full -scale-x-100 object-cover transition-opacity duration-700 ${live ? 'opacity-100' : 'opacity-0'}`}
+            style={{ filter: 'grayscale(1) contrast(1.35) brightness(1.05)' }}
+          />
+          {/* Neon duotone over the live feed */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-fuchsia-500 via-violet-600 to-cyan-400 mix-blend-color" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0a0428]/70 to-transparent mix-blend-multiply" />
+          {!live && (
+            <svg viewBox="0 0 200 160" className="absolute inset-0 h-full w-full" aria-hidden="true">
+              <circle cx="100" cy="62" r="30" fill="none" stroke="#7DF9FF" strokeWidth="3" />
+              <path d="M40 160 C45 115 70 100 100 100 C130 100 155 115 160 160" fill="none" stroke="#7DF9FF" strokeWidth="3" />
+            </svg>
           )}
-        </AnimatePresence>
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/25 to-transparent mix-blend-overlay" />
-        <motion.div
-          className="absolute inset-x-0 h-10 bg-gradient-to-b from-transparent via-[#00D4FF]/50 to-transparent"
-          animate={{ top: ['-15%', '110%'] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }}
-        />
+          <motion.div
+            aria-hidden="true"
+            className="absolute inset-x-0 h-12 bg-gradient-to-b from-transparent via-[#00D4FF]/50 to-transparent"
+            animate={{ top: ['-20%', '110%'] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }}
+          />
+          <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 font-mono-nums text-[9px] uppercase tracking-widest text-[#00D4FF]">
+            {live ? '● Live' : 'Scan to unlock'}
+          </span>
+        </div>
+        <div className="mt-2 rounded-md bg-white/90 px-2 py-1.5 text-[10px] italic leading-snug text-[#02040b]">
+          Your two-line legend, written by AI the moment you are scanned.
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+          {['Strength', 'Weakness', 'Hobby'].map((label) => (
+            <div key={label} className="rounded-md border border-sky-500/40 bg-[#0a1a3a] py-1">
+              <p className="font-mono-nums text-[8px] uppercase tracking-wider text-sky-300">{label}</p>
+              <p className="font-display text-xs font-extrabold">???</p>
+            </div>
+          ))}
+        </div>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent" />
       </motion.div>
-      {/* Preload thumbs so missing ones are detected even before the style step */}
-      <div className="hidden">
-        {probe.map(({ id, url }) => (
-          <img key={id} src={url} alt="" onError={() => onMissing(id)} />
-        ))}
-      </div>
     </div>
   );
 }
@@ -592,14 +656,14 @@ function ScanStep({
 
   return (
     <>
-      <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">04 // Biometric scan</p>
+      <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">02 // Biometric scan</p>
       <h2 className="mt-3 text-center font-display text-3xl font-extrabold sm:text-4xl">Look into the lens & smile</h2>
 
       <div className="mt-6 flex w-full items-center justify-center gap-8">
         <div className={`hidden w-44 space-y-3 text-right lg:block ${readout} text-sky-400/80`}>
           <p>Subject<br /><span className="text-white">{name}</span></p>
-          <p>Form<br /><span className="text-white">{styleLabel}</span></p>
-          <p>Class<br /><span className="text-white">{personaLabel}</span></p>
+          <p>Next<br /><span className="text-white">{styleLabel}</span></p>
+          <p>Then<br /><span className="text-white">{personaLabel}</span></p>
         </div>
 
         <HudFrame className="w-[min(78vw,62vh)]">

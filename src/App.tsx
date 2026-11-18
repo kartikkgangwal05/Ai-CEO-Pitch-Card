@@ -29,6 +29,7 @@ import {
   validatePitchInput,
 } from './utils/pitch';
 import { applyComicCartoonFilter } from './utils/cartoonize';
+import { applyPhotoFilter } from './utils/photoFilters';
 
 const EMPTY_INPUT: PitchInput = {
   visitorType: 'PGDM Student',
@@ -167,6 +168,7 @@ export default function App() {
         imageUrl?: string | null;
         notice?: string;
         error?: string;
+        fallbackMode?: string;
       };
       if (!response.ok) {
         throw new Error(payload.error || 'Could not convert photo into cartoon character.');
@@ -174,10 +176,10 @@ export default function App() {
 
       if (!payload.imageUrl) {
         if (params.imageDataUrl) {
-          const celCartoonUrl = await applyComicCartoonFilter(
-            params.imageDataUrl,
-            params.cartoonStyle
-          );
+          const photoFilterMode = payload.fallbackMode === 'photo-filter';
+          const celCartoonUrl = photoFilterMode
+            ? await applyPhotoFilter(params.imageDataUrl, params.cartoonStyle)
+            : await applyComicCartoonFilter(params.imageDataUrl, params.cartoonStyle);
           setInput((prev) => ({ ...prev, aiCharacterUrl: celCartoonUrl }));
           setCurrentCard((prev) => (prev ? { ...prev, aiCharacterUrl: celCartoonUrl } : prev));
           setVisitorQueue((prev) =>
@@ -188,7 +190,7 @@ export default function App() {
             )
           );
           setCharacterError(
-            payload.notice ||
+            photoFilterMode ? null : payload.notice ||
               'Applied Studio Comic Cel-Shade cartoon filter automatically (add Gemini billing in Settings > Secrets for full AI character redraws).'
           );
           return celCartoonUrl;
@@ -372,6 +374,8 @@ export default function App() {
       ...EMPTY_INPUT,
       name: result.name,
       capturedPhotoUrl: result.photoDataUrl,
+      // Filtered photo is already made in the booth, so no image API call is needed.
+      aiCharacterUrl: result.portraitUrl,
       cartoonStyle: result.cartoonStyle,
       personaId: result.personaId,
       strength1: result.strength,
@@ -379,6 +383,7 @@ export default function App() {
       hobby: result.hobby,
     };
     setInput(boothInput);
+    setCharacterError(null);
     setSessionStartMs(Date.now());
     void generateWithAi(boothInput);
   };

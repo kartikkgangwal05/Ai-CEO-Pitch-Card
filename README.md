@@ -29,9 +29,10 @@ still works: an offline cartoon filter and built-in jokes are used, and the UI s
 
 ## Portrait engines
 
-| `IMAGE_ENGINE` | How the cartoon is made | Needs |
+| `IMAGE_ENGINE` | How the portrait is made | Needs |
 | --- | --- | --- |
-| `claude` (default when `ANTHROPIC_API_KEY` is set) | Claude (`claude-opus-5-5`) looks at the photo and picks hair, glasses, beard, headwear, skin and hair colours from an avatar kit; [DiceBear](https://github.com/dicebear/dicebear) draws a crisp vector cartoon. | Anthropic key only |
+| `filter` (default) | The real photo gets an Instagram-style look in the browser: Neon Cyber, Comic Pop, Golden Hour, Holo Foil, Retro Film or Noir Hero. Instant, free, keeps the likeness. | Nothing |
+| `claude` | Claude (`claude-opus-5-5`) looks at the photo and picks hair, glasses, beard, headwear, skin and hair colours from an avatar kit; [DiceBear](https://github.com/dicebear/dicebear) draws a crisp vector cartoon. | Anthropic key only |
 | `gemini` | Gemini repaints the photo in the chosen style, guided by `public/styles/` reference images. | Gemini key with billing enabled |
 
 Claude also writes the funny title, intro and any stats left on "AI decides" (structured JSON output, with
@@ -41,11 +42,12 @@ Micah by Micah Lanier (CC BY 4.0).
 
 ## Booth mode (default screen)
 
-The app opens on a full-screen sci-fi kiosk that needs only three things:
-1. **Name** → 2. **Look** (6 art styles + optional class) → 3. **Powers** (pick Strength / Weakness / Hobby,
-or leave "AI decides") with a live card preview → 4. **Face scan** (3-2-1 countdown, or upload).
+The app opens on a full-screen sci-fi kiosk (the start card shows the visitor's live camera with a neon tint):
+1. **Name** → 2. **Face scan** (3-2-1 countdown, or upload) → 3. **Filter**: the six looks applied to *their own
+photo*, plus an optional class → 4. **Powers** (pick Strength / Weakness / Hobby, or leave "AI decides") with a live
+card preview, then **Create my card**.
 The AI writes the funny title and intro (and any stats left on "AI decides"), then the card materialises front-first. Keys: **Enter** to advance,
-**1–6** to pick a style, **Esc** to go back. "Studio" (top right) opens the full editor.
+**1–6** to pick a filter, **Esc** to go back. "Studio" (top right) opens the full editor.
 
 ### Art styles and style references
 

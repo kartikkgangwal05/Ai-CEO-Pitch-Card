@@ -1,7 +1,7 @@
 import type { CartoonStyleId } from '../types/pitch';
 
 /** Which service draws the portrait. Claude can't output pixels, so the Claude engine = vision + avatar kit. */
-export type ArtEngine = 'claude' | 'gemini';
+export type ArtEngine = 'filter' | 'claude' | 'gemini';
 
 export interface ClaudeStyle {
   /** DiceBear collection export name. */

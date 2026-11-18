@@ -89,11 +89,16 @@ async function callAnthropicJson(params: { system: string; userPrompt: string })
   return JSON.parse(text.text);
 }
 
-/** Which service draws portraits. Default: Claude whenever an Anthropic key is set. */
+/**
+ * Which service makes the portrait.
+ *   filter (default): the browser applies an Instagram-style filter to the real photo.
+ *   claude: Claude reads the photo and builds a vector cartoon avatar.
+ *   gemini: Gemini repaints the photo (needs billing).
+ */
 function getImageEngine(): ArtEngine {
   const forced = process.env.IMAGE_ENGINE?.trim().toLowerCase();
-  if (forced === 'claude' || forced === 'gemini') return forced;
-  return getAnthropicClient() ? 'claude' : 'gemini';
+  if (forced === 'claude' || forced === 'gemini' || forced === 'filter') return forced;
+  return 'filter';
 }
 
 /** Optional style reference image for an art style: public/styles/<styleId>.(jpg|jpeg|png|webp). */
@@ -173,7 +178,7 @@ async function startServer() {
     res.json({
       ok: true,
       imageEngine: getImageEngine(),
-      imageModel: getImageEngine() === 'claude' ? CLAUDE_MODEL : (workingImageModel ?? imageModels[0] ?? null),
+      imageModel: getImageEngine() === 'filter' ? 'browser photo filter' : getImageEngine() === 'claude' ? CLAUDE_MODEL : (workingImageModel ?? imageModels[0] ?? null),
       aiConfigured: Boolean(getGeminiClient() || getAnthropicApiKey()),
       geminiConfigured: Boolean(getGeminiClient()),
       anthropicConfigured: Boolean(getAnthropicApiKey()),
@@ -409,6 +414,12 @@ async function startServer() {
     const imageDataUrl = (rawBody.imageDataUrl ?? '').trim();
     const customPrompt = (rawBody.customPrompt ?? '').trim();
     const resolvedStyle: CartoonStyleId = rawBody.cartoonStyle || 'bold-toon';
+
+    // Filter engine: the browser applies the photo filter itself; nothing to call.
+    if (getImageEngine() === 'filter' && !rawBody.isEdit) {
+      res.json({ imageUrl: null, fallbackMode: 'photo-filter', styleUsed: resolvedStyle });
+      return;
+    }
 
     // Claude engine: vision picks avatar-kit parts, DiceBear draws the portrait.
     if (getImageEngine() === 'claude' && imageDataUrl && !rawBody.isEdit) {

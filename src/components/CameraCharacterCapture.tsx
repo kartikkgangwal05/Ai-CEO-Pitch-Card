@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { CartoonStyleId, PersonaId, Specialisation } from '../types/pitch';
 import { CARTOON_STYLE_OPTIONS, PERSONA_OPTIONS } from '../utils/pitch';
+import { photoFilterLabel } from '../utils/photoFilters';
 import { AnimatePresence, motion } from 'motion/react';
 import { playTick } from '../utils/sfx';
 
@@ -244,7 +245,7 @@ export function CameraCharacterCapture({
                     : 'bg-[#081226] text-sky-100 border-sky-400/25 hover:border-sky-300'
                 }`}
               >
-                {style.label}
+                {style.modern ? photoFilterLabel(style.id) : style.label}
               </button>
             );
           })}
