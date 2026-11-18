@@ -153,7 +153,7 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
             </p>
 
             {/* Stats */}
-            <dl data-testid="card-stats" className="relative z-10 grid grid-cols-3 text-center" style={{ marginBottom: '0.25em' }}>
+            <dl data-testid="card-stats" className="relative z-10 grid grid-cols-3 text-center" style={{ marginBottom: '0.75em', padding: '0 1.1em' }}>
               {stats.map((word, i) => (
                 <div key={i} className="flex min-w-0 flex-col items-center" style={{ gap: '0.12em', borderLeft: i ? `0.05em solid ${g1}66` : undefined }}>
                   <dt className="sr-only">{['Strength', 'Weakness', 'Hobby'][i]}</dt>

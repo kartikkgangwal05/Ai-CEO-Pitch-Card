@@ -15,7 +15,12 @@ function getSegmenter(): Promise<ImageSegmenter | null> {
           outputConfidenceMasks: true,
           outputCategoryMask: false,
         });
-      return await create('GPU').catch(() => create('CPU'));
+      // Some machines (no WebGL, bad drivers) hang instead of failing on GPU: give it 4s, then use CPU.
+      const gpu = Promise.race([
+        create('GPU'),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('GPU delegate timed out')), 4000)),
+      ]);
+      return await gpu.catch(() => create('CPU'));
     } catch (err) {
       console.warn('[segment] person cutout unavailable:', err);
       return null;
