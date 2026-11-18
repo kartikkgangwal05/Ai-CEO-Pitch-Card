@@ -26,7 +26,7 @@ export const SPECIALISATIONS: readonly Specialisation[] = [
 
 export const TONES: readonly Tone[] = ['Confident', 'Friendly', 'Formal'];
 
-export const EXACT_SYSTEM_PROMPT = `You are a placement coach for PGDM students at the #DYPAICoE launch, Pune. Input: name, specialisation, one strength, dream role, tone. Return ONLY valid JSON: pitch (a 30-second "Tell me about yourself" answer, 70-80 words, first person; structure: present who I am, proof of one strength with a concrete example placeholder in [brackets], future and why the dream role), linkedin_headline (max 200 characters, using | separators), keywords (3 skills recruiters search for in that role). Confident, honest, no fake achievements, simple English.`;
+export const EXACT_SYSTEM_PROMPT = `You are an executive placement & leadership communication coach for PGDM scholars and industry guests at the #DYPAICoE launch, Pune. Input: name, specialisation, one strength, dream role, tone. Return ONLY valid JSON: pitch (a crisp 30-second "Tell me about yourself" executive answer, 70-80 words, first person; structure: sharp professional positioning, high-impact proof of one strength with a concrete metric placeholder in [brackets], future-focused commercial value in the target role; avoid generic clichés like "hardworking" or "eager to learn"), linkedin_headline (max 200 characters, using | separators), keywords (3 high-signal skills recruiters or executives search for). Confident, honest, boardroom-ready English.`;
 
 export interface TcgCardTheme {
   typeLabel: string;
@@ -534,29 +534,29 @@ export function buildFallbackPitch(input: PitchInput, salt = 0): PitchResult {
       const roleDescriptor = currentPos
         ? `${currentPos}`
         : input.visitorType === 'Company Owner / Founder'
-          ? 'a Company Founder & Business Owner'
-          : 'a Senior Director & Industry Leader';
+          ? 'Founder & Managing Leader'
+          : 'Senior Director & Industry Strategist';
       return [
-        `I am ${name}, ${roleDescriptor}, joining the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune. Across my leadership journey in ${spec}, my core differentiator is ${s1Summary}, proved in ${placeholder}. I am championing ${effectiveDreamRole} so emerging PGDM talent and industry teams collaborate with sharper commercial agility and measurable innovation.`,
-        `Hello, I am ${name}, ${roleDescriptor}, visiting the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune. Focusing on ${spec}, I bring ${s1Summary}, demonstrated through ${placeholder} with disciplined execution. Looking ahead, I am driving ${effectiveDreamRole} to mentor next-generation builders and accelerate practical AI-led business impact.`,
+        `I am ${name}, ${roleDescriptor}, joining the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune. Across my leadership work in ${spec}, I drive ${s1Summary}, most recently demonstrated through ${placeholder}. Focused on ${effectiveDreamRole}, I am partnering with emerging PGDM talent and industry leaders to translate applied AI into resilient revenue growth and disciplined operational execution.`,
+        `Good to meet you — I am ${name}, ${roleDescriptor}, visiting the #DYPAICoE launch in Pune. Within ${spec}, my core strength is ${s1Summary}, validated in ${placeholder}. Around ${effectiveDreamRole}, my priority is bridging industry execution with next-generation management leaders so teams turn emerging AI capabilities into measurable enterprise value and sustained commercial advantage.`,
       ];
     }
 
     if (input.tone === 'Friendly') {
       return [
-        `Hello, I am ${name}, a PGDM ${spec} candidate (Batch 2026–28) at Dr. D. Y. Patil B-School, Pune. Colleagues value my ${s1Summary} across cross-functional initiatives. Recently, I applied this in ${placeholder}, aligning stakeholders around clear commercial priorities. I am excited to step into a ${effectiveDreamRole} role where I can translate sharp analysis into practical business execution alongside a collaborative team.`,
-        `Hello, I am ${name}, pursuing a PGDM (Batch 2026–28) in ${spec} at DYP B-School, Pune. Stakeholders rely on my ${s1Summary} during fast-paced business sprints. Recently, in ${placeholder}, I aligned cross-functional peers around measurable commercial deliverables. I am eager to join your organization as a ${effectiveDreamRole} to drive structured execution and sustainable value creation.`,
+        `Hello, I am ${name}, a PGDM ${spec} scholar (Batch 2026–28) at Dr. D. Y. Patil B-School, Pune. Teams rely on my ${s1Summary} to turn ambiguity into structured action, most recently in ${placeholder}. I am excited to step into a ${effectiveDreamRole} role where I can combine analytical ownership with cross-functional collaboration to deliver measurable commercial growth.`,
+        `Hi, I am ${name}, pursuing my PGDM in ${spec} (Batch 2026–28) at DYP B-School, Pune. Colleagues count on my ${s1Summary}, which I recently applied in ${placeholder} to align stakeholders around clear deliverables. Stepping into a ${effectiveDreamRole} opportunity, I aim to pair sharp business judgment with collaborative execution that creates value from week one.`,
       ];
     }
     if (input.tone === 'Formal') {
       return [
-        `Good day. I am ${name}, a PGDM candidate (Batch 2026–28) specializing in ${spec} at Dr. D. Y. Patil B-School, Pune. My core competency lies in ${s1Summary}, demonstrated through ${placeholder}, upholding analytical rigor and stakeholder alignment. Looking ahead, I am targeting a ${effectiveDreamRole} appointment where I can contribute disciplined execution, commercial acumen, and measurable value creation from day one.`,
-        `Good day. I am ${name}, a PGDM ${spec} candidate (Batch 2026–28) at DYP B-School, Pune. My primary competency is ${s1Summary}, evidenced through ${placeholder} with strict analytical rigor. Looking ahead, I am pursuing a ${effectiveDreamRole} role where I can apply structured problem-solving, stakeholder alignment, and operational discipline toward measurable organizational value creation from day one.`,
+        `Good day. I am ${name}, a PGDM candidate (Batch 2026–28) specializing in ${spec} at Dr. D. Y. Patil B-School, Pune. My core capability lies in ${s1Summary}, substantiated through ${placeholder} with analytical rigor. I am targeting a ${effectiveDreamRole} position where I can contribute structured governance, stakeholder alignment, and measurable commercial value creation from day one.`,
+        `Good day. I am ${name}, a PGDM ${spec} candidate (Batch 2026–28) at DYP B-School, Pune. My primary strength is ${s1Summary}, evidenced through ${placeholder} under demanding delivery timelines. I am pursuing a ${effectiveDreamRole} appointment to apply disciplined problem-solving, executive communication, and sound operational judgment toward sustained organizational performance from day one.`,
       ];
     }
     return [
-      `I am ${name}, a PGDM ${spec} candidate (Batch 2026–28) at Dr. D. Y. Patil B-School, Pune, focused on commercial impact. My core differentiator is ${s1Summary}, proved in ${placeholder}, driving cross-functional clarity under tight timelines. I am targeting a ${effectiveDreamRole} role to scale data-backed decision-making, strengthen stakeholder execution, and deliver measurable business outcomes from day one.`,
-      `I am ${name}, a PGDM ${spec} candidate (Batch 2026–28) at DYP B-School, Pune, focused on commercial execution. My core differentiator is ${s1Summary}, proven through ${placeholder} with strict operational rigor. Now I am targeting a ${effectiveDreamRole} role so I can champion data-backed decision-making, accelerate cross-functional alignment, and deliver sustained commercial value creation from day one.`,
+      `I am ${name}, a PGDM ${spec} candidate (Batch 2026–28) at Dr. D. Y. Patil B-School, Pune, focused on measurable business outcomes. My differentiator is ${s1Summary}, proved through ${placeholder} under tight executive timelines. Targeting a ${effectiveDreamRole} role, I am ready to turn sharp insight into cross-functional alignment, faster decision velocity, and tangible commercial impact from day one.`,
+      `I am ${name}, specializing in PGDM ${spec} (Batch 2026–28) at DYP B-School, Pune, with a focus on commercial execution. My competitive edge is ${s1Summary}, demonstrated in ${placeholder} to accelerate stakeholder clarity. Stepping into a ${effectiveDreamRole} role, I am equipped to champion data-backed decisions, elevate team execution, and compound measurable business value.`,
     ];
   };
 

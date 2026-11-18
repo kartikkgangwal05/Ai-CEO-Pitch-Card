@@ -111,6 +111,8 @@ test('buildFallbackPitch generates polished strengths, weakness, tagline, motiva
   assert.ok(words >= 66 && words <= 85, `Expected ~70-80 words, got ${words}`);
   assert.match(result.pitch, /\[.+\]/);
   assert.match(result.pitch, /[.!?]$/);
+  assert.match(result.pitch, /commercial|outcomes|stakeholder|decision/i);
+  assert.equal(/hardworking|eager to learn/i.test(result.pitch), false);
   assert.ok(result.linkedin_headline.length <= 200);
   assert.equal(result.keywords.length, 3);
   assert.ok(result.tagline.length > 5);
@@ -140,7 +142,7 @@ test('Owner / Director card handles optional currentPosition and optional Streng
   });
   assert.equal(result.resolvedCharacterId, 'visionary-captain');
   assert.equal(result.strength2, '');
-  assert.match(result.pitch, /Founder|Owner|DYPAICoE/i);
+  assert.match(result.pitch, /Founder|Managing Leader|DYPAICoE/i);
   assert.match(result.weakness, /Milestone|Velocity/i);
 });
 

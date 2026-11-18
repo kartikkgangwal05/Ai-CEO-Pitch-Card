@@ -166,7 +166,7 @@ async function startServer() {
           ? `Motivational line: ${input.motivationalLine.trim()}`
           : 'Motivational line: (write 1 unique, inspiring motivational line tailored to this visitor, max 16 words)',
         `Tone: ${input.tone}`,
-        'IMPORTANT TASK: Rephrase and upgrade Raw Strength 1, Raw Strength 2 (only if provided), and Raw Weakness into polished, impressive corporate/executive terminology (never leave casual slang raw). For a Company Owner / Founder or Director / CXO, tailor the pitch and headline around their leadership identity and #DYPAICoE vision rather than job-seeking.',
+        'IMPORTANT TASK: Rephrase and upgrade Raw Strength 1, Raw Strength 2 (only if provided), and Raw Weakness into polished, executive-grade business terminology (never leave casual slang raw). Deliver a crisp, natural-sounding 30-second pitch with strong active verbs, concrete commercial value, and zero filler clichés ("hardworking team player", "passionate learner"). For a Company Owner / Founder or Director / CXO, frame the pitch and headline around executive leadership, market impact, and #DYPAICoE industry collaboration rather than job-seeking.',
         'Return ONLY valid JSON with fields: pitch, linkedin_headline, keywords (array of 3 strings), refined_strength1, refined_strength2, refined_weakness, tagline, motivational_line, recommended_character.',
       ].join('\n');
 

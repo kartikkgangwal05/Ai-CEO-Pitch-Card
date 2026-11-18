@@ -408,6 +408,30 @@ export default function App() {
     setCurrentCard(samples[0]);
   };
 
+  const handleUpdateCard = (updated: VisitorCard) => {
+    setCurrentCard(updated);
+    setVisitorQueue((prev) => {
+      const exists = prev.some((item) => item.id === updated.id);
+      if (!exists) return pushVisitorToQueue(prev, updated, 4);
+      return prev.map((item) => (item.id === updated.id ? updated : item));
+    });
+    setInput((prev) => ({
+      ...prev,
+      visitorType: updated.visitorType,
+      name: updated.name,
+      currentPosition: updated.currentPosition,
+      specialisation: updated.specialisation,
+      dreamRole: updated.dreamRole,
+      stickerFont: updated.stickerFont,
+      cartoonStyle: updated.cartoonStyle,
+      strength1: updated.strength1,
+      strength2: updated.strength2,
+      weakness: updated.weakness,
+      tagline: updated.tagline,
+      motivationalLine: updated.motivationalLine,
+    }));
+  };
+
   return (
     <div className="relative min-h-screen flex flex-col bg-[#030712] text-white overflow-x-hidden">
       {/* Subtle Neon-Blue Cartoon & Geometric Background Texture */}
@@ -588,6 +612,7 @@ export default function App() {
             currentCard={currentCard}
             history={visitorQueue}
             onSelectCard={(card) => setCurrentCard(card)}
+            onUpdateCard={handleUpdateCard}
             onLoadSampleCohort={handleLoadSampleCohort}
             onGoToCreate={() => setActiveTab('create')}
           />
