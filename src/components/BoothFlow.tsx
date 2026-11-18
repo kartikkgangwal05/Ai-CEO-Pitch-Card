@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Camera, ImageUp, Settings2 } from 'lucide-react';
 import type { CartoonStyleId, PersonaId } from '../types/pitch';
 import { CARTOON_STYLE_OPTIONS, PERSONA_OPTIONS } from '../utils/pitch';
+import { CLAUDE_STYLES, type ArtEngine } from '../utils/claudeStyles';
 import { playTick } from '../utils/sfx';
 import { PowersStep, type Powers } from './PowersStep';
 
@@ -34,7 +35,10 @@ const STEPS: { id: Exclude<Step, 'attract'>; label: string }[] = [
 ];
 
 const STYLES = CARTOON_STYLE_OPTIONS.filter((s) => s.modern);
-const styleThumb = (id: string) => `/styles/${id}.jpg`;
+const geminiThumb = (id: string) => `/styles/${id}.jpg`;
+/** Server-rendered sample avatar (Claude engine) so tiles show exactly the look people will get. */
+const claudeThumb = (id: string, seed = 'Power Card') => `/api/style-preview/${id}.svg?seed=${encodeURIComponent(seed)}`;
+const SAMPLE_SEEDS = ['Asha', 'Kabir', 'Meera', 'Arjun', 'Zoya', 'Ravi'];
 
 /** Square, mirrored (selfie) JPEG from the live video or an uploaded image. */
 function squareJpeg(source: CanvasImageSource, w: number, h: number, mirror: boolean): string {
@@ -83,13 +87,19 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   const [styleId, setStyleId] = useState<CartoonStyleId>('bold-toon');
   const [personaId, setPersonaId] = useState<PersonaId>('none');
   const [powers, setPowers] = useState<Powers>({ strength: '', weakness: '', hobby: '' });
-  const [aiStatus, setAiStatus] = useState<{ online: boolean; model: string | null } | null>(null);
+  const [aiStatus, setAiStatus] = useState<{ online: boolean; model: string | null; engine: ArtEngine } | null>(null);
 
   useEffect(() => {
     fetch('/api/health')
       .then((r) => r.json())
-      .then((h) => setAiStatus({ online: Boolean(h.geminiConfigured), model: h.imageModel ?? null }))
-      .catch(() => setAiStatus({ online: false, model: null }));
+      .then((h) =>
+        setAiStatus({
+          engine: h.imageEngine === 'gemini' ? 'gemini' : 'claude',
+          online: h.imageEngine === 'gemini' ? Boolean(h.geminiConfigured) : Boolean(h.anthropicConfigured),
+          model: h.imageModel ?? null,
+        })
+      )
+      .catch(() => setAiStatus({ online: false, model: null, engine: 'claude' }));
   }, []);
   const [missingThumbs, setMissingThumbs] = useState<Set<string>>(new Set());
   const rootRef = useRef<HTMLDivElement>(null);
@@ -120,7 +130,11 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   };
 
   const markMissing = (id: string) => setMissingThumbs((prev) => new Set(prev).add(id));
-  const availableThumbs = STYLES.filter((s) => !missingThumbs.has(s.id));
+  const engine: ArtEngine = aiStatus?.engine ?? 'claude';
+  const thumb = (id: string, seed?: string) => (engine === 'claude' ? claudeThumb(id, seed) : geminiThumb(id));
+  const styleText = (s: (typeof STYLES)[number]) =>
+    engine === 'claude' ? { label: CLAUDE_STYLES[s.id]?.label ?? s.label, blurb: CLAUDE_STYLES[s.id]?.blurb ?? s.blurb } : { label: s.label, blurb: s.blurb };
+  const availableThumbs = STYLES.filter((s) => engine === 'claude' || !missingThumbs.has(s.id));
 
   // Global keys: Enter advances from the attract screen and the style step.
   useEffect(() => {
@@ -195,7 +209,9 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
               aiStatus.online ? 'border-emerald-400/40 text-emerald-300' : 'border-amber-400/50 text-amber-300'
             }`}
           >
-            {aiStatus.online ? '● AI online' : '○ AI offline · add GEMINI_API_KEY'}
+            {aiStatus.online
+              ? `● ${aiStatus.engine === 'claude' ? 'Claude' : 'Gemini'} art online`
+              : `○ AI offline · add ${aiStatus.engine === 'claude' ? 'ANTHROPIC_API_KEY' : 'GEMINI_API_KEY'}`}
           </span>
         )}
         <button
@@ -212,7 +228,11 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
         <AnimatePresence mode="wait">
           {step === 'attract' && (
             <motion.section key="attract" {...stepMotion} className="flex flex-col items-center text-center">
-              <AttractHologram thumbs={availableThumbs.map((s) => styleThumb(s.id))} onMissing={markMissing} styleIds={STYLES.map((s) => s.id)} />
+              <AttractHologram
+                thumbs={availableThumbs.map((s, i) => thumb(s.id, SAMPLE_SEEDS[i]))}
+                onMissing={markMissing}
+                probe={engine === 'gemini' ? STYLES.map((s) => ({ id: s.id, url: geminiThumb(s.id) })) : []}
+              />
               <h1 className="booth-glitch mt-10 font-display text-5xl font-extrabold tracking-tight sm:text-7xl" data-text="GET YOUR POWER CARD">
                 GET YOUR POWER CARD
               </h1>
@@ -297,9 +317,9 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                       whileHover={{ y: -6 }}
                     >
                       <div className="aspect-[3/4] w-full" style={{ background: `linear-gradient(160deg, ${bg}, ${fg})` }}>
-                        {!missingThumbs.has(s.id) && (
+                        {(engine === 'claude' || !missingThumbs.has(s.id)) && (
                           <img
-                            src={styleThumb(s.id)}
+                            src={thumb(s.id, name.trim() || 'Power Card')}
                             alt=""
                             onError={() => markMissing(s.id)}
                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
@@ -307,8 +327,8 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                         )}
                       </div>
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2.5 pb-2 pt-8">
-                        <p className="font-display text-sm font-extrabold leading-tight">{s.label}</p>
-                        <p className="text-[10px] text-sky-200/80">{s.blurb}</p>
+                        <p className="font-display text-sm font-extrabold leading-tight">{styleText(s).label}</p>
+                        <p className="text-[10px] text-sky-200/80">{styleText(s).blurb}</p>
                       </div>
                       <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 font-mono-nums text-[10px] text-sky-200">{i + 1}</span>
                       {active && (
@@ -324,7 +344,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                 })}
               </div>
 
-              <p className="mt-8 font-mono-nums text-[11px] uppercase tracking-[0.35em] text-sky-400/80">Choose a class (optional)</p>
+              <p className="mt-8 font-mono-nums text-[11px] uppercase tracking-[0.35em] text-sky-400/80">{engine === 'claude' ? 'Choose a class (sets your title & badge)' : 'Choose a class (optional)'}</p>
               <div className="mt-3 flex max-w-4xl flex-wrap justify-center gap-2">
                 {PERSONA_OPTIONS.map((p) => {
                   const active = p.id === personaId;
@@ -365,7 +385,14 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
             <motion.section key="powers" {...stepMotion} className="flex w-full max-w-6xl flex-col items-center">
               <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">03 // Choose your powers</p>
               <h2 className="mt-3 mb-8 text-center font-display text-3xl font-extrabold sm:text-4xl">What goes on your card?</h2>
-              <PowersStep name={name.trim()} styleId={styleId} personaId={personaId} powers={powers} onChange={setPowers} />
+              <PowersStep
+                name={name.trim()}
+                styleId={styleId}
+                personaId={personaId}
+                powers={powers}
+                onChange={setPowers}
+                previewUrl={thumb(styleId, name.trim() || 'Power Card')}
+              />
               <div className="mt-8 flex items-center gap-4">
                 <button type="button" onClick={() => go('style')} className="booth-ghost-btn">
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
@@ -381,7 +408,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
             <motion.section key="scan" {...stepMotion} className="flex w-full max-w-5xl flex-col items-center">
               <ScanStep
                 name={name.trim()}
-                styleLabel={STYLES.find((s) => s.id === styleId)?.label ?? ''}
+                styleLabel={styleText(STYLES.find((s) => s.id === styleId) ?? STYLES[0]).label}
                 personaLabel={PERSONA_OPTIONS.find((p) => p.id === personaId)?.label ?? ''}
                 onBack={() => go('powers')}
                 onCaptured={(photoDataUrl) => {
@@ -398,7 +425,15 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
 }
 
 /** Rotating hologram card cycling through the style thumbnails. */
-function AttractHologram({ thumbs, onMissing, styleIds }: { thumbs: string[]; onMissing: (id: string) => void; styleIds: string[] }) {
+function AttractHologram({
+  thumbs,
+  onMissing,
+  probe,
+}: {
+  thumbs: string[];
+  onMissing: (id: string) => void;
+  probe: { id: string; url: string }[];
+}) {
   const [i, setI] = useState(0);
   useEffect(() => {
     const t = window.setInterval(() => setI((n) => n + 1), 1600);
@@ -444,8 +479,8 @@ function AttractHologram({ thumbs, onMissing, styleIds }: { thumbs: string[]; on
       </motion.div>
       {/* Preload thumbs so missing ones are detected even before the style step */}
       <div className="hidden">
-        {styleIds.map((id) => (
-          <img key={id} src={styleThumb(id)} alt="" onError={() => onMissing(id)} />
+        {probe.map(({ id, url }) => (
+          <img key={id} src={url} alt="" onError={() => onMissing(id)} />
         ))}
       </div>
     </div>

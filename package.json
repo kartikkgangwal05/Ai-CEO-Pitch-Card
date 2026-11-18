@@ -13,6 +13,9 @@
     "test": "tsx --test src/utils/pitch.test.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.10.0",
+    "@dicebear/collection": "^9.4.2",
+    "@dicebear/core": "^9.4.3",
     "@google/genai": "^3.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/qrcode": "^1.5.6",

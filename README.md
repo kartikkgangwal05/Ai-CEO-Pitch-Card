@@ -1,6 +1,6 @@
 # Power Card Studio (#DYPAICoE)
 
-Snap a photo → Gemini turns it into a cartoon → get a funny trading-style **power card** at real
+Snap a photo → AI turns it into a cartoon → get a funny trading-style **power card** at real
 **playing-card size, 63.5 × 88.9 mm (2.5 × 3.5 in)**:
 
 - funny title (e.g. "Captain Snooze Button")
@@ -20,12 +20,24 @@ npm run dev              # http://localhost:3000
 
 | Job | Key / model |
 | --- | --- |
-| Photo → cartoon portrait | `GEMINI_API_KEY`. The server asks Gemini which image models the key can use and picks the best (prefers `gemini-3.1-flash-image`). Force one with `GEMINI_IMAGE_MODEL`. Image models may need billing enabled. |
+| Photo → cartoon portrait | `ANTHROPIC_API_KEY` (default, see Portrait engines) or `GEMINI_API_KEY` with `IMAGE_ENGINE=gemini`. For Gemini the server picks the best image model the key can use (prefers `gemini-3.1-flash-image`); image models need billing enabled. |
 | Title, intro, one-word stats | `ANTHROPIC_API_KEY` (Claude) if set, otherwise Gemini |
 
-Claude cannot generate images, so a Gemini key is what makes the cartoon portrait. The booth header shows **AI online / offline**, and the reveal shows an amber note when a portrait fell back.
+An Anthropic key alone runs the whole booth. The booth header shows **AI online / offline**, and the reveal shows an amber note when a portrait fell back.
 Without keys the app
 still works: an offline cartoon filter and built-in jokes are used, and the UI says so.
+
+## Portrait engines
+
+| `IMAGE_ENGINE` | How the cartoon is made | Needs |
+| --- | --- | --- |
+| `claude` (default when `ANTHROPIC_API_KEY` is set) | Claude (`claude-opus-5-5`) looks at the photo and picks hair, glasses, beard, headwear, skin and hair colours from an avatar kit; [DiceBear](https://github.com/dicebear/dicebear) draws a crisp vector cartoon. | Anthropic key only |
+| `gemini` | Gemini repaints the photo in the chosen style, guided by `public/styles/` reference images. | Gemini key with billing enabled |
+
+Claude also writes the funny title, intro and any stats left on "AI decides" (structured JSON output, with
+server-side refusal fallback enabled). Claude-engine avatar art credits: Avataaars and Open Peeps by Pablo Stanley,
+Personas by Draftbit (CC BY 4.0), Toon Head by Johan Melin (CC BY 4.0), Big Smile by Ashley Seo (CC BY 4.0),
+Micah by Micah Lanier (CC BY 4.0).
 
 ## Booth mode (default screen)
 

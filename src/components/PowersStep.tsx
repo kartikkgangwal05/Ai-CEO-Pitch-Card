@@ -41,10 +41,18 @@ interface PowersStepProps {
   personaId: PersonaId;
   powers: Powers;
   onChange: Dispatch<SetStateAction<Powers>>;
+  /** Sample art for the chosen look (Claude avatar or Gemini reference). */
+  previewUrl: string;
 }
 
 /** Live preview card shown while picking stats: the chosen look's sample art + the chosen words. */
-function buildPreviewCard(name: string, styleId: CartoonStyleId, personaId: PersonaId, powers: Powers): VisitorCard {
+function buildPreviewCard(
+  name: string,
+  styleId: CartoonStyleId,
+  personaId: PersonaId,
+  powers: Powers,
+  previewUrl: string
+): VisitorCard {
   const persona = getPersona(personaId);
   return {
     visitorType: 'PGDM Student',
@@ -52,7 +60,7 @@ function buildPreviewCard(name: string, styleId: CartoonStyleId, personaId: Pers
     currentPosition: '',
     specialisation: 'Business Analytics',
     capturedPhotoUrl: '',
-    aiCharacterUrl: `/styles/${styleId}.jpg`,
+    aiCharacterUrl: previewUrl,
     characterPrompt: '',
     cartoonStyle: styleId,
     personaId,
@@ -79,7 +87,7 @@ function buildPreviewCard(name: string, styleId: CartoonStyleId, personaId: Pers
 }
 
 /** Booth step: pick (or let AI pick) the one-word Strength / Weakness / Hobby, with a live card preview. */
-export function PowersStep({ name, styleId, personaId, powers, onChange }: PowersStepProps) {
+export function PowersStep({ name, styleId, personaId, powers, onChange, previewUrl }: PowersStepProps) {
   const [customFor, setCustomFor] = useState<keyof Powers | null>(null);
   const [customText, setCustomText] = useState('');
 
@@ -114,7 +122,7 @@ export function PowersStep({ name, styleId, personaId, powers, onChange }: Power
         transition={{ type: 'spring', stiffness: 120, damping: 18 }}
       >
         <HoloTilt intensity={10} idle>
-          <TcgPitchCard card={buildPreviewCard(name, styleId, personaId, powers)} mode="preview" side="front" />
+          <TcgPitchCard card={buildPreviewCard(name, styleId, personaId, powers, previewUrl)} mode="preview" side="front" />
         </HoloTilt>
         <p className="mt-3 text-center font-mono-nums text-[10px] uppercase tracking-[0.3em] text-sky-400/70">Live preview</p>
       </motion.div>

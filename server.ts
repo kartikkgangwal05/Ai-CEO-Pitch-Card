@@ -1,8 +1,11 @@
 import 'dotenv/config';
+import Anthropic from '@anthropic-ai/sdk';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CLAUDE_MODEL, claudePortrait, getAnthropicClient, stylePreviewSvg } from './server/claudeArt.ts';
+import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import {
   EXACT_SYSTEM_PROMPT,
@@ -49,51 +52,48 @@ function getAnthropicApiKey(): string | null {
   return apiKey;
 }
 
-async function callAnthropicJson(params: {
-  apiKey: string;
-  system: string;
-  userPrompt: string;
-}): Promise<unknown> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 18000);
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': params.apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5-5',
-        max_tokens: 2400,
-        system: params.system,
-        messages: [{ role: 'user', content: params.userPrompt }],
-      }),
-    });
+const CARD_TEXT_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: { type: 'string', description: 'Funny 2-4 word epithet, max 28 chars, no name.' },
+    intro: { type: 'string', description: 'Exactly two short punchy sentences, 14-24 words total.' },
+    strength: { type: 'string', description: 'ONE word.' },
+    weakness: { type: 'string', description: 'ONE word.' },
+    hobby: { type: 'string', description: 'ONE word.' },
+    power: { type: 'integer', description: '60-99' },
+    recommended_character: {
+      type: 'string',
+      enum: ['gadget-cat', 'mischief-maverick', 'harmony-ace', 'strategy-prodigy', 'visionary-captain', 'data-wizard'],
+    },
+  },
+  required: ['title', 'intro', 'strength', 'weakness', 'hobby', 'power', 'recommended_character'],
+  additionalProperties: false,
+};
 
-    const data = (await response.json()) as {
-      error?: { message?: string };
-      content?: Array<{ type?: string; text?: string }>;
-    };
+/** Card text via the Anthropic SDK with a JSON schema, so the reply always parses. */
+async function callAnthropicJson(params: { system: string; userPrompt: string }): Promise<unknown> {
+  const anthropic = getAnthropicClient();
+  if (!anthropic) throw new Error('ANTHROPIC_API_KEY is not set.');
+  const response = await anthropic.beta.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: 4000,
+    output_config: { effort: 'low', format: { type: 'json_schema', schema: CARD_TEXT_SCHEMA } },
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    system: params.system,
+    messages: [{ role: 'user', content: params.userPrompt }],
+  });
+  if (response.stop_reason === 'refusal') throw new Error('Claude declined to write this card.');
+  const text = response.content.find((b) => b.type === 'text');
+  if (!text || text.type !== 'text') throw new Error('Claude returned no card text.');
+  return JSON.parse(text.text);
+}
 
-    if (!response.ok) {
-      throw new Error(data.error?.message || `Anthropic API error (${response.status}).`);
-    }
-
-    const combinedText = (data.content ?? [])
-      .filter((c) => typeof c.text === 'string' && c.text.trim().length > 0)
-      .map((c) => c.text!.trim())
-      .join('\n');
-    if (!combinedText) {
-      throw new Error('Anthropic returned an empty response.');
-    }
-
-    return extractJsonObject(combinedText);
-  } finally {
-    clearTimeout(timeout);
-  }
+/** Which service draws portraits. Default: Claude whenever an Anthropic key is set. */
+function getImageEngine(): ArtEngine {
+  const forced = process.env.IMAGE_ENGINE?.trim().toLowerCase();
+  if (forced === 'claude' || forced === 'gemini') return forced;
+  return getAnthropicClient() ? 'claude' : 'gemini';
 }
 
 /** Optional style reference image for an art style: public/styles/<styleId>.(jpg|jpeg|png|webp). */
@@ -172,7 +172,8 @@ async function startServer() {
     const imageModels = ai ? await getImageModelCandidates(ai).catch(() => []) : [];
     res.json({
       ok: true,
-      imageModel: workingImageModel ?? imageModels[0] ?? null,
+      imageEngine: getImageEngine(),
+      imageModel: getImageEngine() === 'claude' ? CLAUDE_MODEL : (workingImageModel ?? imageModels[0] ?? null),
       aiConfigured: Boolean(getGeminiClient() || getAnthropicApiKey()),
       geminiConfigured: Boolean(getGeminiClient()),
       anthropicConfigured: Boolean(getAnthropicApiKey()),
@@ -240,7 +241,6 @@ async function startServer() {
       if (anthropicKey) {
         try {
           const parsed = await callAnthropicJson({
-            apiKey: anthropicKey,
             system: EXACT_SYSTEM_PROMPT,
             userPrompt,
           });
@@ -384,6 +384,16 @@ async function startServer() {
     }
   });
 
+  // Sample avatar per style for the booth tiles (Claude engine). No API call.
+  app.get('/api/style-preview/:styleId.svg', (req, res) => {
+    try {
+      res.type('image/svg+xml').set('Cache-Control', 'public, max-age=3600');
+      res.send(stylePreviewSvg(req.params.styleId as CartoonStyleId, String(req.query.seed ?? 'Power Card')));
+    } catch {
+      res.status(404).end();
+    }
+  });
+
   app.post('/api/character', async (req, res) => {
     const rawBody = (req.body ?? {}) as {
       imageDataUrl?: string;
@@ -399,6 +409,40 @@ async function startServer() {
     const imageDataUrl = (rawBody.imageDataUrl ?? '').trim();
     const customPrompt = (rawBody.customPrompt ?? '').trim();
     const resolvedStyle: CartoonStyleId = rawBody.cartoonStyle || 'bold-toon';
+
+    // Claude engine: vision picks avatar-kit parts, DiceBear draws the portrait.
+    if (getImageEngine() === 'claude' && imageDataUrl && !rawBody.isEdit) {
+      const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUrl);
+      if (!match) {
+        res.status(400).json({ error: 'Invalid captured image format. Please capture or upload PNG/JPEG/WebP.' });
+        return;
+      }
+      try {
+        const { imageUrl } = await claudePortrait({
+          imageBase64: match[2],
+          mimeType: match[1],
+          styleId: resolvedStyle,
+          seed: String(imageDataUrl.length),
+        });
+        res.json({ imageUrl, fallbackMode: 'claude-avatar', model: CLAUDE_MODEL, styleUsed: resolvedStyle });
+      } catch (err) {
+        const reason = err instanceof Anthropic.AuthenticationError
+          ? 'Claude rejected the API key.'
+          : err instanceof Anthropic.RateLimitError
+            ? 'Claude rate limit reached, try again in a moment.'
+            : err instanceof Error
+              ? err.message.slice(0, 160)
+              : 'Claude portrait failed.';
+        console.warn('[claude-art] falling back to offline filter:', reason);
+        res.json({
+          imageUrl: null,
+          fallbackMode: 'comic-cel-shade',
+          styleUsed: resolvedStyle,
+          notice: `AI portrait unavailable (${reason}) Used the offline cartoon filter instead.`,
+        });
+      }
+      return;
+    }
 
     const ai = getGeminiClient();
     if (!ai) {
