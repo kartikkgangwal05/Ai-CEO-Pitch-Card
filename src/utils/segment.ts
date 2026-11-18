@@ -1,6 +1,6 @@
 // Person cutout in the browser with MediaPipe's selfie segmenter.
 // Runtime (wasm) and model are served locally from /mediapipe and /models, so the booth works offline.
-import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
+import { FilesetResolver, ImageSegmenter, PoseLandmarker } from '@mediapipe/tasks-vision';
 
 let segmenterPromise: Promise<ImageSegmenter | null> | null = null;
 
@@ -29,9 +29,80 @@ function getSegmenter(): Promise<ImageSegmenter | null> {
   return segmenterPromise;
 }
 
-/** Warm the model up early (e.g. when the booth opens) so the first scan is fast. */
+let posePromise: Promise<PoseLandmarker | null> | null = null;
+
+function getPose(): Promise<PoseLandmarker | null> {
+  posePromise ??= (async () => {
+    try {
+      const fileset = await FilesetResolver.forVisionTasks('/mediapipe');
+      const create = (delegate: 'GPU' | 'CPU') =>
+        PoseLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate },
+          runningMode: 'IMAGE',
+          numPoses: 1,
+        });
+      const gpu = Promise.race([
+        create('GPU'),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('GPU delegate timed out')), 4000)),
+      ]);
+      return await gpu.catch(() => create('CPU'));
+    } catch (err) {
+      console.warn('[pose] landmarks unavailable:', err);
+      return null;
+    }
+  })();
+  return posePromise;
+}
+
+/** Warm the models up early (e.g. when the booth opens) so the first scan is fast. */
 export function preloadSegmenter() {
   void getSegmenter();
+  void getPose();
+}
+
+export interface Pt {
+  x: number;
+  y: number;
+}
+
+/**
+ * Key upper-body points in canvas pixels (shoulders, ears, nose, mouth corners), or null.
+ * visL / visR are the pose model's visibility scores (0..1) for the left / right shoulder.
+ */
+export interface UpperBody {
+  nose: Pt;
+  mouthL: Pt;
+  mouthR: Pt;
+  earL: Pt;
+  earR: Pt;
+  shoulderL: Pt;
+  shoulderR: Pt;
+  visL: number;
+  visR: number;
+}
+
+export async function upperBody(source: HTMLCanvasElement): Promise<UpperBody | null> {
+  const pose = await getPose();
+  if (!pose) return null;
+  try {
+    const lm = pose.detect(source).landmarks?.[0];
+    if (!lm || lm.length < 13) return null;
+    const p = (i: number): Pt => ({ x: lm[i].x * source.width, y: lm[i].y * source.height });
+    return {
+      nose: p(0),
+      mouthL: p(9),
+      mouthR: p(10),
+      earL: p(7),
+      earR: p(8),
+      shoulderL: p(11),
+      shoulderR: p(12),
+      visL: lm[11].visibility ?? 1,
+      visR: lm[12].visibility ?? 1,
+    };
+  } catch (err) {
+    console.warn('[pose] failed:', err);
+    return null;
+  }
 }
 
 /**

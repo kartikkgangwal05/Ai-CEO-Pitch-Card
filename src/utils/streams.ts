@@ -14,6 +14,9 @@ export interface StreamTheme {
   deep: string;
   ink: string;
   frame: [string, string, string];
+  /** Richer (lighter) panel colours used in print so the stream hue survives on press. */
+  printDeep?: string;
+  printInk?: string;
   /** Icons floating in the portrait and on the stats row. */
   icons: [StreamIcon, StreamIcon, StreamIcon];
   /** Words used when the visitor leaves stats on "AI decides" and AI is offline. */
@@ -32,6 +35,8 @@ export const STREAMS: Record<Specialisation, StreamTheme> = {
     glow: '#FFB020',
     light: '#FFE08A',
     deep: '#2A1604',
+    printDeep: '#4A2A08',
+    printInk: '#2E1904',
     ink: '#1A0E02',
     frame: GOLD,
     icons: ['people', 'heart', 'handshake'],
@@ -45,8 +50,10 @@ export const STREAMS: Record<Specialisation, StreamTheme> = {
     glow: '#2F8CFF',
     light: '#9CCBFF',
     deep: '#030F2E',
+    printDeep: '#0A2350',
+    printInk: '#061738',
     ink: '#020818',
-    frame: ['#E8F1FF', '#9DB7E0', '#3A5684'],
+    frame: ['#E8F1FF', '#9DB7E0', '#5B79AD'],
     icons: ['chart', 'target', 'bulb'],
     words: ['Analyse', 'Strategise', 'Innovate'],
     flavor: 'a data wizard who conjures dashboards, SQL and predictions',
@@ -58,6 +65,8 @@ export const STREAMS: Record<Specialisation, StreamTheme> = {
     glow: '#FF3B2F',
     light: '#FFB199',
     deep: '#2A0404',
+    printDeep: '#4A0B0B',
+    printInk: '#2C0606',
     ink: '#160202',
     frame: GOLD,
     icons: ['coins', 'trend', 'shield'],
@@ -71,6 +80,8 @@ export const STREAMS: Record<Specialisation, StreamTheme> = {
     glow: '#22D36B',
     light: '#A6F5C4',
     deep: '#03200F',
+    printDeep: '#0B3A1F',
+    printInk: '#06261A',
     ink: '#021208',
     frame: GOLD,
     icons: ['megaphone', 'like', 'play'],
@@ -84,6 +95,8 @@ export const STREAMS: Record<Specialisation, StreamTheme> = {
     glow: '#A855F7',
     light: '#DDB8FF',
     deep: '#16052A',
+    printDeep: '#2E0C4E',
+    printInk: '#1A0530',
     ink: '#0C0218',
     frame: GOLD,
     icons: ['crown', 'rocket', 'star'],

@@ -344,7 +344,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
             <motion.section key="style" {...stepMotion} className="flex w-full max-w-6xl flex-col items-center text-center">
               <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">03 // Choose your stream</p>
               <h2 className="mt-3 font-display text-3xl font-extrabold sm:text-4xl">
-                Which house of magic are you, <span style={{ color: theme.light }}>{firstName}</span>?
+                Which order do you belong to, <span style={{ color: theme.light }}>{firstName}</span>?
               </h2>
               <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
                 {STREAM_ORDER.map((id, i) => {

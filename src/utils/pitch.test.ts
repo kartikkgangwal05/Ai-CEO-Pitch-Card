@@ -232,6 +232,51 @@ test('normalizePitchResponse falls back when the AI omits title or intro', () =>
   assert.ok(result.title.length > 0);
 });
 
+test('normalizePitchResponse replaces a franchise title with the safe stream archetype', () => {
+  const result = normalizePitchResponse(
+    {
+      title: 'The Gryffindor of Data',
+      intro: 'Aarav turns dashboards into magic. Meetings end early when they arrive.',
+      strength: 'Excel',
+      weakness: 'Chai',
+      hobby: 'Cricket',
+    },
+    BASE_STUDENT
+  );
+  assert.equal(result.source, 'template');
+  assert.equal(result.title, 'The Analytics Wizard');
+  assert.doesNotMatch(result.title, /gryffindor/i);
+  assert.doesNotMatch(result.intro, /gryffindor/i);
+
+  const spell = normalizePitchResponse(
+    { title: 'Budget Boss', intro: 'Aarav casts Accio on every invoice. The ledger always balances.' },
+    { ...BASE_STUDENT, specialisation: 'Finance' }
+  );
+  assert.equal(spell.title, 'The Financial Strategist');
+  assert.doesNotMatch(spell.intro, /accio/i);
+
+  // Word boundaries: "Spotter" must not be mistaken for "Potter".
+  const spotter = normalizePitchResponse(
+    { title: 'The Trend Spotter', intro: 'Aarav sees the chart before it moves. Analysts take notes.' },
+    BASE_STUDENT
+  );
+  assert.equal(spotter.source, 'ai');
+  assert.equal(spotter.title, 'The Trend Spotter');
+
+  // AI stats are checked too: a franchise hobby falls back to the template word.
+  const hobby = normalizePitchResponse(
+    { title: 'The Trend Spotter', intro: 'Aarav sees the chart before it moves. Analysts take notes.', hobby: 'Quidditch' },
+    { ...BASE_STUDENT, hobby: '' }
+  );
+  assert.equal(hobby.source, 'ai');
+  assert.doesNotMatch(hobby.hobby, /quidditch/i);
+});
+
+test('EXACT_SYSTEM_PROMPT forbids franchise references', () => {
+  assert.ok(EXACT_SYSTEM_PROMPT.includes('Never reference Harry Potter'));
+  assert.ok(EXACT_SYSTEM_PROMPT.includes('Hogwarts'));
+});
+
 test('buildCharacterGenerationPrompt enforces stylized cartoon art, high-fidelity 3D mascot descriptors, and edit workflows', () => {
   const createPrompt = buildCharacterGenerationPrompt({
     specialisation: 'Marketing',

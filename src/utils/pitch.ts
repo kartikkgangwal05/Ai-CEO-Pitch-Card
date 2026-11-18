@@ -1,3 +1,4 @@
+import { STREAMS } from './streams';
 import type {
   CartoonStyleId,
   PersonaId,
@@ -30,6 +31,7 @@ export const TONES: readonly Tone[] = ['Confident', 'Friendly', 'Formal'];
 export const EXACT_SYSTEM_PROMPT = `You write the text for funny, printable trading-style "power cards" handed out at the #DYPAICoE launch event.
 Tone: playful, witty, warm. Roast gently so the person laughs and wants to keep the card.
 Never mock appearance, body, age, gender, religion, caste, ethnicity or anything sensitive. No profanity.
+Never reference Harry Potter or any franchise: no Hogwarts, Gryffindor, Slytherin, Ravenclaw, Hufflepuff, Muggle, Quidditch, Patronus, Horcrux, Sorting, Dumbledore, Voldemort, or named spells like Accio, Expelliarmus, Lumos. Keep any magic flavour original.
 Return ONLY valid JSON with:
 - title: a funny 2-4 word epithet like "The Spreadsheet Sorcerer" or "Captain Snooze Button", max 28 characters, never containing the person's name.
 - intro: exactly two short sentences, 14-24 words in total, punchy, in the voice of a trading-card description. Never use he/she/him/her: use the first name or "they", because you cannot know how the person identifies.
@@ -830,6 +832,10 @@ export function extractJsonObject(rawText: string): unknown {
   }
 }
 
+/** Franchise words (Harry Potter) that must never be printed on a card. */
+export const FRANCHISE =
+  /\b(?:hogwarts|gryffindors?|slytherins?|ravenclaws?|hufflepuffs?|muggles?|quidditch|patronus(?:es)?|horcrux(?:es)?|sorting hat|dumbledore|voldemort|hermione|weasleys?|harry potter|potter(?:heads?)?|hogsmeade|dementors?|hagrid|snape|expecto|accio|expelliarmus|lumos|alohomora|wingardium|avada|snitch|diagon|azkaban)\b/i;
+
 export function normalizePitchResponse(raw: unknown, input: PitchInput, salt = 0): PitchResult {
   const fallback = buildFallbackPitch(input, salt);
   if (!raw || typeof raw !== 'object') {
@@ -841,9 +847,19 @@ export function normalizePitchResponse(raw: unknown, input: PitchInput, salt = 0
   if (!title || !intro) {
     return fallback;
   }
+  // Franchise names must never reach a printed card: drop the AI text and use the original archetype.
+  if (FRANCHISE.test(title) || FRANCHISE.test(intro)) {
+    const archetype = STREAMS[input.specialisation]?.archetype;
+    return archetype ? { ...fallback, title: archetype, linkedin_headline: clampHeadline(archetype) } : fallback;
+  }
 
   // Words the person typed win; the model only fills the blanks.
-  const stat = (typed: string, ai: unknown, fb: string) => oneWord(typed) || oneWord(ai, fb);
+  // AI-written stats get the same franchise check as the title and intro.
+  const stat = (typed: string, ai: unknown, fb: string) => {
+    if (oneWord(typed)) return oneWord(typed);
+    const word = oneWord(ai, fb);
+    return FRANCHISE.test(word) ? fb : word;
+  };
 
   let resolvedCharacterId = fallback.resolvedCharacterId;
   if (
