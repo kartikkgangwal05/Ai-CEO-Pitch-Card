@@ -32,7 +32,7 @@ Tone: playful, witty, warm. Roast gently so the person laughs and wants to keep 
 Never mock appearance, body, age, gender, religion, caste, ethnicity or anything sensitive. No profanity.
 Return ONLY valid JSON with:
 - title: a funny 2-4 word epithet like "The Spreadsheet Sorcerer" or "Captain Snooze Button", max 28 characters, never containing the person's name.
-- intro: exactly two short sentences, 14-24 words in total, third person, punchy, in the voice of a trading-card description.
+- intro: exactly two short sentences, 14-24 words in total, punchy, in the voice of a trading-card description. Never use he/she/him/her: use the first name or "they", because you cannot know how the person identifies.
 - strength, weakness, hobby: EXACTLY ONE WORD each (no spaces or hyphens), max 12 characters, capitalised, funny and specific to the facts when possible. If the user supplied a word for one of them, use that word.
 - power: an integer from 60 to 99.`;
 

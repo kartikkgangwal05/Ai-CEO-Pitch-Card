@@ -2,6 +2,7 @@ import type { VisitorCard } from '../types/pitch';
 import { getCharacterById } from '../utils/characters';
 import { TCG_THEMES, getPersona, getStickerFontClass } from '../utils/pitch';
 import { photoFilterLabel } from '../utils/photoFilters';
+import { ArcaneCard } from './ArcaneCard';
 import { CharacterIllustrationSvg } from './CharacterIllustrationSvg';
 
 interface TcgPitchCardProps {
@@ -223,6 +224,10 @@ export function TcgPitchCard({ card, mode = 'preview', side = 'front' }: TcgPitc
 
   if (side === 'back') {
     return <CardBackSticker card={card} isPrint={isPrint} />;
+  }
+
+  if (card.design === 'arcane') {
+    return <ArcaneCard card={card} mode={mode} />;
   }
 
   const theme = TCG_THEMES[card.specialisation];

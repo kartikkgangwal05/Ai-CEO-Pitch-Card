@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CLAUDE_MODEL, claudePortrait, getAnthropicClient, stylePreviewSvg } from './server/claudeArt.ts';
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
+import { STREAMS } from './src/utils/streams.ts';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import {
   EXACT_SYSTEM_PROMPT,
@@ -237,6 +238,9 @@ async function startServer() {
         getPersona(input.personaId).flavor
           ? `Card persona: the person is drawn as ${getPersona(input.personaId).flavor}. Make the title and intro playfully match this theme.`
           : 'Card persona: none (everyday portrait).',
+        rawBody.design === 'arcane'
+          ? `Stream: ${input.specialisation}. This is a magic-academy card: the person is ${STREAMS[input.specialisation]?.flavor ?? 'a business wizard'}. Make the title a funny wizard-style epithet tied to this stream (e.g. "The Spreadsheet Sorcerer", "Archmage of Appraisals"), and keep any invented stats relevant to the stream.`
+          : `Stream: ${input.specialisation}.`,
         typed('Strength', input.strength1),
         typed('Weakness', input.weakness),
         typed('Hobby', input.hobby),

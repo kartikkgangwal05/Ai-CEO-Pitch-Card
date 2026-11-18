@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Camera, ImageUp, Settings2, Sparkles } from 'lucide-react';
-import type { CartoonStyleId, PersonaId } from '../types/pitch';
-import { PERSONA_OPTIONS } from '../utils/pitch';
-import { PHOTO_FILTERS, applyPhotoFilter } from '../utils/photoFilters';
+import type { CartoonStyleId, PersonaId, Specialisation } from '../types/pitch';
+import { ICON_PATHS, STREAMS, STREAM_ORDER } from '../utils/streams';
+import { renderMagicPortrait } from '../utils/magicPortrait';
+import { preloadSegmenter } from '../utils/segment';
 import { playTick } from '../utils/sfx';
 import { PowersStep, type Powers } from './PowersStep';
 
@@ -15,6 +16,8 @@ export interface BoothResult {
   portraitUrl: string;
   cartoonStyle: CartoonStyleId;
   personaId: PersonaId;
+  /** PGDM stream: sets the card colours, icons and title theme. */
+  stream: Specialisation;
   /** One-word stats picked in the booth; empty string means the AI decides. */
   strength: string;
   weakness: string;
@@ -32,7 +35,7 @@ type Step = 'attract' | 'name' | 'scan' | 'style' | 'powers';
 const STEPS: { id: Exclude<Step, 'attract'>; label: string }[] = [
   { id: 'name', label: 'Identify' },
   { id: 'scan', label: 'Scan' },
-  { id: 'style', label: 'Filter' },
+  { id: 'style', label: 'Stream' },
   { id: 'powers', label: 'Powers' },
 ];
 
@@ -81,13 +84,19 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   const [step, setStep] = useState<Step>('attract');
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
-  const [previews, setPreviews] = useState<Partial<Record<CartoonStyleId, string>>>({});
-  const [styleId, setStyleId] = useState<CartoonStyleId>('bold-toon');
-  const [personaId, setPersonaId] = useState<PersonaId>('none');
+  const [previews, setPreviews] = useState<Partial<Record<Specialisation, string>>>({});
+  const [stream, setStream] = useState<Specialisation>('Business Analytics');
+  const styleId: CartoonStyleId = 'bold-toon';
+  const personaId: PersonaId = 'none';
   const [powers, setPowers] = useState<Powers>({ strength: '', weakness: '', hobby: '' });
   const [creating, setCreating] = useState(false);
   const [aiOnline, setAiOnline] = useState<boolean | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Load the person-cutout model while people read the start screen.
+  useEffect(() => {
+    preloadSegmenter();
+  }, []);
 
   useEffect(() => {
     fetch('/api/health')
@@ -110,16 +119,16 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
     }
   }, [step]);
 
-  // Render all six filters on the visitor's own photo (small previews, one after another).
+  // Render the visitor's magic portrait in every stream (small previews, one after another).
   useEffect(() => {
     if (!photo) return;
     let cancelled = false;
     setPreviews({});
     (async () => {
-      for (const f of PHOTO_FILTERS) {
-        const url = await applyPhotoFilter(photo, f.id, 480).catch(() => '');
+      for (const id of [stream, ...STREAM_ORDER.filter((x) => x !== stream)]) {
+        const url = await renderMagicPortrait(photo, id, 520).catch(() => '');
         if (cancelled) return;
-        if (url) setPreviews((prev) => ({ ...prev, [f.id]: url }));
+        if (url) setPreviews((prev) => ({ ...prev, [id]: url }));
         await new Promise((r) => setTimeout(r, 0));
       }
     })();
@@ -133,7 +142,6 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
     setName('');
     setPhoto(null);
     setPreviews({});
-    setPersonaId('none');
     setPowers({ strength: '', weakness: '', hobby: '' });
     setCreating(false);
   }, []);
@@ -146,8 +154,8 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   const create = async () => {
     if (!photo || creating) return;
     setCreating(true);
-    const portraitUrl = await applyPhotoFilter(photo, styleId, 960).catch(() => previews[styleId] ?? photo);
-    onComplete({ name: name.trim(), photoDataUrl: photo, portraitUrl, cartoonStyle: styleId, personaId, ...powers });
+    const portraitUrl = await renderMagicPortrait(photo, stream, 1000).catch(() => previews[stream] ?? photo);
+    onComplete({ name: name.trim(), photoDataUrl: photo, portraitUrl, cartoonStyle: styleId, personaId, stream, ...powers });
     reset();
   };
 
@@ -160,7 +168,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
         go('name');
       } else if (step === 'style') {
         const n = Number(e.key);
-        if (n >= 1 && n <= PHOTO_FILTERS.length) setStyleId(PHOTO_FILTERS[n - 1].id);
+        if (n >= 1 && n <= STREAM_ORDER.length) setStream(STREAM_ORDER[n - 1]);
         if (e.key === 'Enter') go('powers');
         if (e.key === 'Escape') go('scan');
       } else if (step === 'powers') {
@@ -173,7 +181,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   });
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
-  const filterLabel = PHOTO_FILTERS.find((f) => f.id === styleId)?.label ?? '';
+  const theme = STREAMS[stream];
   const firstName = name.trim().split(/\s+/)[0];
 
   return (
@@ -255,10 +263,10 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                   GET YOUR POWER CARD
                 </h1>
                 <p className="mt-5 max-w-md text-base text-sky-200/80 sm:text-lg lg:max-w-none">
-                  One scan. Pick a filter. AI writes your legend. A collectible card in about 30 seconds.
+                  One scan. Pick your stream. AI writes your legend. A collectible card in about 30 seconds.
                 </p>
                 <ol className="mt-8 flex flex-wrap justify-center gap-2 font-mono-nums text-[11px] uppercase tracking-[0.2em] text-sky-300 lg:justify-start">
-                  {['Scan', 'Filter', 'Powers', 'Reveal'].map((label, i) => (
+                  {['Scan', 'Stream', 'Powers', 'Reveal'].map((label, i) => (
                     <li key={label} className="rounded-full border border-sky-500/30 bg-[#061026]/70 px-3 py-1.5">
                       <span className="text-[#00D4FF]">{i + 1}</span> {label}
                     </li>
@@ -321,7 +329,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
             <motion.section key="scan" {...stepMotion} className="flex w-full max-w-5xl flex-col items-center">
               <ScanStep
                 name={name.trim()}
-                styleLabel="Pick your filter"
+                styleLabel="Pick your stream"
                 personaLabel="Choose your powers"
                 onBack={() => go('name')}
                 onCaptured={(dataUrl) => {
@@ -333,56 +341,68 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
           )}
 
           {step === 'style' && (
-            <motion.section key="style" {...stepMotion} className="flex w-full max-w-5xl flex-col items-center text-center">
-              <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">03 // Choose your filter</p>
+            <motion.section key="style" {...stepMotion} className="flex w-full max-w-6xl flex-col items-center text-center">
+              <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">03 // Choose your stream</p>
               <h2 className="mt-3 font-display text-3xl font-extrabold sm:text-4xl">
-                Looking good, <span className="text-[#00D4FF]">{firstName}</span>. Pick your vibe.
+                Which house of magic are you, <span style={{ color: theme.light }}>{firstName}</span>?
               </h2>
-              <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-                {PHOTO_FILTERS.map((f, i) => {
-                  const active = f.id === styleId;
-                  const src = previews[f.id];
+              <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+                {STREAM_ORDER.map((id, i) => {
+                  const t = STREAMS[id];
+                  const active = id === stream;
+                  const src = previews[id];
                   return (
                     <motion.button
-                      key={f.id}
+                      key={id}
                       type="button"
-                      data-testid={`booth-style-${f.id}`}
+                      data-testid={`booth-stream-${t.short.split(' ')[0]}`}
                       onClick={() => {
                         playTick(false);
-                        setStyleId(f.id);
+                        setStream(id);
                       }}
                       aria-pressed={active}
-                      className={`group relative overflow-hidden rounded-2xl border-2 text-left cursor-pointer ${
-                        active ? 'border-[#00D4FF] shadow-[0_0_28px_rgba(0,212,255,0.65)]' : 'border-sky-900 hover:border-sky-400'
-                      }`}
+                      className="group relative overflow-hidden rounded-2xl text-left cursor-pointer"
+                      style={{
+                        border: `2px solid ${active ? t.light : t.glow + '55'}`,
+                        boxShadow: active ? `0 0 30px ${t.glow}` : undefined,
+                      }}
                       initial={{ opacity: 0, y: 24 }}
-                      animate={{ opacity: 1, y: 0, scale: active ? 1.03 : 1 }}
+                      animate={{ opacity: 1, y: 0, scale: active ? 1.04 : 1 }}
                       transition={{ delay: i * 0.05, type: 'spring', stiffness: 160, damping: 18 }}
-                      whileHover={{ y: -4 }}
+                      whileHover={{ y: -5 }}
                     >
-                      <div className="relative aspect-[4/3] w-full bg-[#061026]">
+                      <div className="relative aspect-[4/5] w-full" style={{ background: `radial-gradient(circle at 50% 35%, ${t.glow}, ${t.deep})` }}>
                         {src ? (
                           <motion.img
                             src={src}
                             alt=""
                             className="h-full w-full object-cover"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.35 }}
+                            initial={{ opacity: 0, scale: 1.08 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.45 }}
                           />
                         ) : (
-                          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-sky-900/40 to-violet-900/40" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <svg viewBox="0 0 24 24" className="h-12 w-12 animate-pulse" aria-hidden="true">
+                              <path d={ICON_PATHS[t.icons[0]]} fill="none" stroke={t.light} strokeWidth="1.5" />
+                            </svg>
+                          </div>
                         )}
                       </div>
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-2 pt-8">
-                        <p className="font-display text-sm font-extrabold leading-tight">{f.label}</p>
-                        <p className="text-[10px] text-sky-200/80">{f.blurb}</p>
+                      <div className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-10" style={{ background: `linear-gradient(transparent, ${t.ink})` }}>
+                        <p className="text-[10px] uppercase tracking-[0.25em]" style={{ color: t.light, fontFamily: 'Cinzel, serif' }}>
+                          {t.short}
+                        </p>
+                        <p className="font-extrabold leading-tight" style={{ color: '#fff', fontFamily: 'Cinzel, serif', fontSize: '0.95rem' }}>
+                          {t.archetype}
+                        </p>
                       </div>
                       <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 font-mono-nums text-[10px] text-sky-200">{i + 1}</span>
                       {active && (
                         <motion.span
                           layoutId="style-check"
-                          className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#00D4FF] text-xs font-bold text-[#02040b]"
+                          className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold"
+                          style={{ background: t.light, color: t.ink }}
                         >
                           ✓
                         </motion.span>
@@ -392,38 +412,12 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                 })}
               </div>
 
-              <p className="mt-6 font-mono-nums text-[11px] uppercase tracking-[0.35em] text-sky-400/80">Choose a class (sets your title & badge)</p>
-              <div className="mt-3 flex max-w-4xl flex-wrap justify-center gap-2">
-                {PERSONA_OPTIONS.map((p) => {
-                  const active = p.id === personaId;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      data-testid={`booth-persona-${p.id}`}
-                      onClick={() => {
-                        playTick(false);
-                        setPersonaId(p.id);
-                      }}
-                      aria-pressed={active}
-                      className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors cursor-pointer ${
-                        active
-                          ? 'border-[#00D4FF] bg-[#00D4FF] text-[#02040b] shadow-[0_0_18px_rgba(0,212,255,0.7)]'
-                          : 'border-sky-800 bg-[#061026]/70 text-sky-100 hover:border-sky-400'
-                      }`}
-                    >
-                      <span aria-hidden="true">{p.emoji}</span> {p.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-6 flex items-center gap-4">
+              <div className="mt-8 flex items-center gap-4">
                 <button type="button" onClick={() => go('scan')} className="booth-ghost-btn">
                   <Camera className="h-4 w-4" aria-hidden="true" /> Retake
                 </button>
                 <button type="button" onClick={() => go('powers')} className="booth-primary-btn">
-                  Use {filterLabel} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  I am {theme.archetype.replace(/^The /, 'the ')} <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </motion.section>
@@ -439,7 +433,8 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                 personaId={personaId}
                 powers={powers}
                 onChange={setPowers}
-                previewUrl={previews[styleId] ?? photo ?? ''}
+                stream={stream}
+                previewUrl={previews[stream] ?? photo ?? ''}
               />
               <div className="mt-8 flex items-center gap-4">
                 <button type="button" onClick={() => go('style')} className="booth-ghost-btn">

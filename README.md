@@ -27,6 +27,24 @@ An Anthropic key alone runs the whole booth. The booth header shows **AI online 
 Without keys the app
 still works: an offline cartoon filter and built-in jokes are used, and the UI says so.
 
+## Stream cards (booth default)
+
+Each student picks their PGDM stream and gets an ornate "magic academy" card in that stream's colours
+(an original design, not tied to any film or book):
+
+| Stream | Colour | Archetype | Icons |
+| --- | --- | --- | --- |
+| HR | Gold | The People Champion | people · heart · handshake |
+| Business Analytics | Blue | The Analytics Wizard | chart · target · bulb |
+| Finance | Red | The Financial Strategist | coins · trend · shield |
+| Marketing | Green | The Marketing Maverick | megaphone · like · play |
+| Leadership (guests) | Purple | The Visionary Leader | crown · rocket · star |
+
+The real photo is cut out in the browser (MediaPipe selfie segmenter, model in `public/models/`, wasm copied to
+`public/mediapipe/` on `npm install`) and placed in a glowing scene with a rune circle, sparks, light ribbons and
+floating stream icons. Claude writes a wizard-style title themed on the stream, the intro and any stats left on
+"AI decides". Everything except the text runs offline. Themes live in `src/utils/streams.ts`.
+
 ## Portrait engines
 
 | `IMAGE_ENGINE` | How the portrait is made | Needs |
@@ -43,11 +61,11 @@ Micah by Micah Lanier (CC BY 4.0).
 ## Booth mode (default screen)
 
 The app opens on a full-screen sci-fi kiosk (the start card shows the visitor's live camera with a neon tint):
-1. **Name** → 2. **Face scan** (3-2-1 countdown, or upload) → 3. **Filter**: the six looks applied to *their own
-photo*, plus an optional class → 4. **Powers** (pick Strength / Weakness / Hobby, or leave "AI decides") with a live
+1. **Name** → 2. **Face scan** (3-2-1 countdown, or upload) → 3. **Stream**: their own photo shown as all five
+stream portraits → 4. **Powers** (pick Strength / Weakness / Hobby, or leave "AI decides") with a live
 card preview, then **Create my card**.
 The AI writes the funny title and intro (and any stats left on "AI decides"), then the card materialises front-first. Keys: **Enter** to advance,
-**1–6** to pick a filter, **Esc** to go back. "Studio" (top right) opens the full editor.
+**1–5** to pick a stream, **Esc** to go back. "Studio" (top right) opens the full editor.
 
 ### Art styles and style references
 

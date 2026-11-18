@@ -61,6 +61,8 @@ export interface PitchInput {
   cartoonStyle: CartoonStyleId;
   /** Costume / world the AI dresses the person in (warrior, wizard...). */
   personaId: PersonaId;
+  /** Card front design: classic neon TCG (default) or the ornate stream "magic academy" card. */
+  design?: 'classic' | 'arcane';
   stickerFont: StickerFontId;
   strength1: string;
   strength2: string;
