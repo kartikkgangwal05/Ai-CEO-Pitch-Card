@@ -1,5 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { BackgroundArtwork } from './components/BackgroundArtwork';
+import { BoothFlow, type BoothResult } from './components/BoothFlow';
+import { RevealStage } from './components/RevealStage';
+import { SummoningOverlay } from './components/SummoningOverlay';
 import { PitchCardPreview } from './components/PitchCardPreview';
 import { PitchForm } from './components/PitchForm';
 import { PrintSheetTab } from './components/PrintSheetTab';
@@ -9,6 +13,7 @@ import { TestPlanTab } from './components/TestPlanTab';
 import type {
   AppTab,
   CartoonStyleId,
+  PersonaId,
   PitchInput,
   PitchResult,
   Specialisation,
@@ -34,11 +39,13 @@ const EMPTY_INPUT: PitchInput = {
   capturedPhotoUrl: '',
   aiCharacterUrl: '',
   characterPrompt: '',
-  cartoonStyle: 'anime-hero',
+  cartoonStyle: 'bold-toon',
+  personaId: 'none',
   stickerFont: 'cartoon',
   strength1: '',
   strength2: '',
   weakness: '',
+  hobby: '',
   dreamRole: '',
   tagline: '',
   motivationalLine: '',
@@ -46,7 +53,7 @@ const EMPTY_INPUT: PitchInput = {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>('create');
+  const [activeTab, setActiveTab] = useState<AppTab>('booth');
   const [input, setInput] = useState<PitchInput>(EMPTY_INPUT);
   const [errors, setErrors] = useState<Partial<Record<keyof PitchInput, string>>>({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -54,6 +61,7 @@ export default function App() {
   const [characterError, setCharacterError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [currentCard, setCurrentCard] = useState<VisitorCard | null>(null);
+  const [revealCard, setRevealCard] = useState<VisitorCard | null>(null);
   const [visitorQueue, setVisitorQueue] = useState<VisitorCard[]>([]);
   const [serialCounter, setSerialCounter] = useState(1);
 
@@ -91,7 +99,7 @@ export default function App() {
       delete next[field];
       return next;
     });
-    if (field === 'capturedPhotoUrl' || field === 'characterPrompt' || field === 'cartoonStyle') {
+    if (field === 'capturedPhotoUrl' || field === 'characterPrompt' || field === 'cartoonStyle' || field === 'personaId') {
       setCharacterError(null);
     }
     if (field === 'cartoonStyle') {
@@ -101,6 +109,19 @@ export default function App() {
         void requestCartoonCharacter({
           imageDataUrl: input.capturedPhotoUrl,
           cartoonStyle: nextStyle,
+          customPrompt: input.characterPrompt,
+          isEdit: false,
+        });
+      }
+    }
+    if (field === 'personaId') {
+      const nextPersona = value as PersonaId;
+      setCurrentCard((prev) => (prev ? { ...prev, personaId: nextPersona } : prev));
+      if (input.capturedPhotoUrl) {
+        void requestCartoonCharacter({
+          imageDataUrl: input.capturedPhotoUrl,
+          cartoonStyle: input.cartoonStyle,
+          personaId: nextPersona,
           customPrompt: input.characterPrompt,
           isEdit: false,
         });
@@ -120,6 +141,7 @@ export default function App() {
   const requestCartoonCharacter = async (params: {
     imageDataUrl: string;
     cartoonStyle: CartoonStyleId;
+    personaId?: PersonaId;
     customPrompt: string;
     isEdit?: boolean;
   }): Promise<string | null> => {
@@ -136,6 +158,7 @@ export default function App() {
           visitorType: input.visitorType,
           dreamRole: input.dreamRole,
           cartoonStyle: params.cartoonStyle,
+          personaId: params.personaId ?? input.personaId,
           customPrompt: params.customPrompt,
           isEdit: Boolean(params.isEdit),
         }),
@@ -268,6 +291,7 @@ export default function App() {
       aiCharacterUrl: sourceInput.aiCharacterUrl,
       characterPrompt: sourceInput.characterPrompt,
       cartoonStyle: sourceInput.cartoonStyle,
+      personaId: sourceInput.personaId,
       stickerFont: sourceInput.stickerFont,
       dreamRole: sourceInput.dreamRole,
       tone: sourceInput.tone,
@@ -279,6 +303,7 @@ export default function App() {
     };
     setCurrentCard(newCard);
     setVisitorQueue((prev) => pushVisitorToQueue(prev, newCard, 4));
+    setRevealCard(newCard);
   };
 
   const generateWithAi = async (sourceInput: PitchInput) => {
@@ -295,6 +320,7 @@ export default function App() {
         ? requestCartoonCharacter({
             imageDataUrl: sourceInput.capturedPhotoUrl,
             cartoonStyle: sourceInput.cartoonStyle,
+            personaId: sourceInput.personaId,
             customPrompt: sourceInput.characterPrompt,
             isEdit: false,
           })
@@ -331,13 +357,30 @@ export default function App() {
       }
       const fallback = buildFallbackPitch(effectiveInput, salt);
       setNotice(
-        'Live AI pitch API unavailable right now — strengths & weakness upgraded with built-in executive phrasing.'
+        'AI text is unavailable right now, so this card uses built-in jokes. Check your API key, then tap Retry AI.'
       );
       setElapsedSeconds(Math.round((Date.now() - startMs) / 1000));
       commitCard(fallback, Date.now() - requestStart, effectiveInput);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  /** Booth: name + photo + style (+ optional class) in, everything else invented by the AI. */
+  const handleBoothComplete = (result: BoothResult) => {
+    const boothInput: PitchInput = {
+      ...EMPTY_INPUT,
+      name: result.name,
+      capturedPhotoUrl: result.photoDataUrl,
+      cartoonStyle: result.cartoonStyle,
+      personaId: result.personaId,
+      strength1: result.strength,
+      weakness: result.weakness,
+      hobby: result.hobby,
+    };
+    setInput(boothInput);
+    setSessionStartMs(Date.now());
+    void generateWithAi(boothInput);
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -427,6 +470,7 @@ export default function App() {
       strength1: updated.strength1,
       strength2: updated.strength2,
       weakness: updated.weakness,
+      hobby: updated.hobby,
       tagline: updated.tagline,
       motivationalLine: updated.motivationalLine,
     }));
@@ -446,13 +490,14 @@ export default function App() {
             onClick={() => setActiveTab('create')}
             className="font-display text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
-            My Pitch Card
+            Power Card Studio
           </button>
 
           {/* Zone 2: Single-line Nav Links (Desktop) */}
           <nav aria-label="Primary sections" className="hidden md:flex items-center gap-5">
             {(
               [
+                { id: 'booth', label: 'Booth Mode' },
                 { id: 'create', label: 'Create Card' },
                 { id: 'say-it', label: 'Say It' },
                 { id: 'print', label: 'Print Card (2.5×3.5")' },
@@ -496,10 +541,11 @@ export default function App() {
         {/* Mobile Navigation Strip */}
         <nav
           aria-label="Mobile sections"
-          className="no-print md:hidden grid grid-cols-4 gap-1 bg-[#081226] border border-sky-400/30 rounded-xl p-1 mb-5"
+          className="no-print md:hidden grid grid-cols-5 gap-1 bg-[#081226] border border-sky-400/30 rounded-xl p-1 mb-5"
         >
           {(
             [
+              { id: 'booth', label: 'Booth' },
               { id: 'create', label: 'Create' },
               { id: 'say-it', label: 'Say It' },
               { id: 'print', label: 'Print' },
@@ -531,8 +577,8 @@ export default function App() {
             <p className="text-xs font-mono-nums font-semibold text-[#00D4FF] tracking-wide">
               #DYPAICoE Launch · Dr. D. Y. Patil B-School, Pune · PGDM 2026–28 & VIP Leaders
             </p>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-0.5">
-              Neon Collector Pitch Card Studio
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-0.5 text-shimmer">
+              Funny Power Card Studio
             </h1>
           </div>
 
@@ -562,7 +608,12 @@ export default function App() {
 
         {activeTab === 'create' && (
           <div className="no-print grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div className="lg:col-span-5">
+            <motion.div
+              className="lg:col-span-5"
+              initial={{ opacity: 0, y: 28 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 90, damping: 18 }}
+            >
               <PitchForm
                 input={input}
                 errors={errors}
@@ -579,9 +630,14 @@ export default function App() {
                 onUseTemplate={handleUseInstantTemplate}
                 onReset={handleNewVisitor}
               />
-            </div>
+            </motion.div>
 
-            <div className="lg:col-span-7">
+            <motion.div
+              className="lg:col-span-7"
+              initial={{ opacity: 0, y: 28 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 90, damping: 18, delay: 0.12 }}
+            >
               <PitchCardPreview
                 card={currentCard}
                 selectedSpecialisation={input.specialisation}
@@ -593,11 +649,12 @@ export default function App() {
                 queueCount={visitorQueue.length}
                 onRetryAi={currentCard ? () => void generateWithAi(input) : undefined}
                 onQuickPrint={() => window.print()}
+                onShowcase={() => currentCard && setRevealCard(currentCard)}
                 onOpenSayIt={() => setActiveTab('say-it')}
                 onOpenPrint={() => setActiveTab('print')}
                 onLoadSampleCard={handleLoadSampleCard}
               />
-            </div>
+            </motion.div>
           </div>
         )}
 
@@ -646,6 +703,33 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {activeTab === 'booth' && (
+        <BoothFlow
+          onComplete={handleBoothComplete}
+          onOpenStudio={() => setActiveTab('create')}
+          paused={isGenerating || revealCard !== null}
+        />
+      )}
+
+      <AnimatePresence>{isGenerating && <SummoningOverlay key="summon" photoUrl={input.capturedPhotoUrl} />}</AnimatePresence>
+      <AnimatePresence>
+        {revealCard && (
+          <RevealStage
+            key={revealCard.id}
+            card={revealCard}
+            warning={revealCard.aiCharacterUrl && characterError ? characterError : null}
+            onClose={() => setRevealCard(null)}
+            onPrint={() => window.print()}
+            onNext={() => {
+              const wasBooth = activeTab === 'booth';
+              setRevealCard(null);
+              handleNewVisitor();
+              if (wasBooth) setActiveTab('booth');
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

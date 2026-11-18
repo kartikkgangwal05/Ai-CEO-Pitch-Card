@@ -1,9 +1,7 @@
-import { Flame, ShieldAlert, Sparkles, Star } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
 import { getCharacterById } from '../utils/characters';
-import { TCG_THEMES, formatQrPlainText, getStickerFontClass } from '../utils/pitch';
+import { TCG_THEMES, getPersona, getStickerFontClass } from '../utils/pitch';
 import { CharacterIllustrationSvg } from './CharacterIllustrationSvg';
-import { QrCodeImage } from './QrCodeImage';
 
 interface TcgPitchCardProps {
   card: VisitorCard;
@@ -11,23 +9,16 @@ interface TcgPitchCardProps {
   side?: 'front' | 'back';
 }
 
+const STAT_ROWS = [
+  { key: 'strength1', label: 'Strength' },
+  { key: 'weakness', label: 'Weakness' },
+  { key: 'hobby', label: 'Hobby' },
+] as const;
+
 function getHeaderBadgeText(card: VisitorCard): string {
   if (card.visitorType === 'Company Owner / Founder') return 'OWNER / FOUNDER';
   if (card.visitorType === 'Director / CXO') return 'DIRECTOR / CXO';
   return 'PGDM 2026–28';
-}
-
-function getRoleSubtitle(card: VisitorCard): string {
-  if (card.visitorType === 'PGDM Student') {
-    const roleOrPos = card.currentPosition.trim() || card.dreamRole.trim();
-    return roleOrPos
-      ? `Dr. D. Y. Patil B-School, Pune · ${roleOrPos}`
-      : 'Dr. D. Y. Patil B-School, Pune';
-  }
-  const pos = card.currentPosition.trim();
-  return pos
-    ? `${pos} · Dr. D. Y. Patil B-School Guest`
-    : `${card.visitorType} · #DYPAICoE Guest`;
 }
 
 function CardBackSticker({
@@ -235,11 +226,8 @@ export function TcgPitchCard({ card, mode = 'preview', side = 'front' }: TcgPitc
 
   const theme = TCG_THEMES[card.specialisation];
   const character = getCharacterById(card.resolvedCharacterId);
-  const qrText = formatQrPlainText(card);
   const headerBadge = getHeaderBadgeText(card);
-  const subtitle = getRoleSubtitle(card);
   const portraitUrl = card.aiCharacterUrl || card.capturedPhotoUrl;
-  const hasStrength2 = card.strength2.trim().length > 0;
 
   return (
     <article
@@ -287,301 +275,118 @@ export function TcgPitchCard({ card, mode = 'preview', side = 'front' }: TcgPitc
           <path d="M 232 344 L 244 344 L 244 332" fill="none" stroke="#00D4FF" strokeWidth="1.6" strokeOpacity="0.8" />
         </svg>
 
-        {/* Top Section: Header + Dynamic SVG Character + Tagline + Strengths */}
-        <div className={`relative z-10 ${isPrint ? 'space-y-[1.1mm]' : 'space-y-1.5'}`}>
-          {/* 1. Card Header */}
+        <div className={`relative z-10 flex flex-col flex-1 min-h-0 ${isPrint ? 'gap-[1.1mm]' : 'gap-1.5'}`}>
+          {/* 1. Header: badge row, funny title, name */}
           <header>
             <div className="flex items-center justify-between gap-1">
-              <div className="flex items-center gap-1 shrink-0">
-                <span
-                  className={`font-mono-nums font-bold uppercase tracking-wider rounded px-1 py-0.5 whitespace-nowrap shrink-0 ${
-                    isPrint ? 'text-[5px]' : 'text-[8.5px]'
-                  }`}
-                  style={{ backgroundColor: theme.badgeBg, color: theme.badgeText }}
-                >
-                  {headerBadge}
-                </span>
-                <span
-                  className={`font-mono-nums font-bold whitespace-nowrap shrink-0 text-sky-300 ${
-                    isPrint ? 'text-[5.2px]' : 'text-[9px]'
-                  }`}
-                >
-                  #DYPAICoE
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1 min-w-0">
-                <span
-                  className={`font-mono-nums font-bold tracking-tight truncate text-white ${
-                    isPrint ? 'text-[5.2px]' : 'text-[9px]'
-                  }`}
-                >
-                  {card.specialisation.toUpperCase()}
-                </span>
-                <span
-                  className={`rounded-full flex items-center justify-center bg-sky-400 text-[#030712] shrink-0 ${
-                    isPrint ? 'w-3 h-3' : 'w-4 h-4'
-                  }`}
-                  aria-hidden="true"
-                >
-                  <Sparkles className={isPrint ? 'w-2 h-2' : 'w-2.5 h-2.5'} />
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-baseline justify-between gap-1.5 mt-0.5">
-              <h3
-                className={`font-display font-extrabold tracking-tight text-white leading-tight truncate ${
-                  isPrint ? 'text-[10.5px]' : 'text-[17px]'
-                }`}
-              >
-                {card.name}
-              </h3>
               <span
-                className={`font-semibold text-sky-300 shrink-0 ${
-                  isPrint ? 'text-[5.2px]' : 'text-[9.5px]'
+                className={`font-mono-nums font-bold uppercase tracking-wider rounded px-1 py-0.5 whitespace-nowrap shrink-0 ${
+                  isPrint ? 'text-[5px]' : 'text-[8.5px]'
+                }`}
+                style={{ backgroundColor: theme.badgeBg, color: theme.badgeText }}
+              >
+                {headerBadge}
+              </span>
+              <span
+                className={`font-mono-nums font-bold whitespace-nowrap text-sky-300 ${
+                  isPrint ? 'text-[5.2px]' : 'text-[9px]'
                 }`}
               >
-                {card.aiCharacterUrl
-                  ? card.cartoonStyle === 'pencil-sketch'
-                    ? '★ Ink Sketch'
-                    : '★ Cartoon AI'
-                  : card.capturedPhotoUrl
-                    ? 'Booth Snap'
-                    : character.label}
+                #{String(card.cardSerial).padStart(3, '0')} · {theme.typeLabel}
               </span>
             </div>
 
+            <h3
+              data-testid="card-title"
+              className={`font-display font-extrabold tracking-tight text-white leading-[1.05] mt-0.5 ${
+                isPrint ? 'text-[10.5px]' : 'text-[18px] title-reveal'
+              } ${card.title.length > 22 ? (isPrint ? '!text-[9px]' : '!text-[15px]') : ''}`}
+            >
+              {card.title}
+            </h3>
             <p
-              className={`font-medium text-sky-100/90 truncate ${
-                isPrint ? 'text-[5.2px]' : 'text-[10px]'
+              className={`font-semibold uppercase tracking-[0.08em] text-sky-200 truncate ${
+                isPrint ? 'text-[5.2px]' : 'text-[9.5px]'
               }`}
             >
-              {subtitle}
+              {card.name}
+              {card.currentPosition.trim() ? ` · ${card.currentPosition.trim()}` : ''}
             </p>
           </header>
 
-          {/* 2. Camera AI-Generated Cartoon Character Container */}
-          <div>
+          {/* 2. Cartoon portrait: takes all spare height */}
+          <div
+            data-testid="svg-character-container"
+            className="relative w-full flex-1 min-h-0 overflow-hidden rounded-[8px] border-2 border-[#00D4FF]/80 shadow-[0_0_18px_rgba(0,212,255,0.28),inset_0_0_14px_rgba(0,212,255,0.3)]"
+            style={{ background: theme.artGradient }}
+          >
+            {portraitUrl ? (
+              <img
+                src={portraitUrl}
+                alt={
+                  card.aiCharacterUrl
+                    ? `${card.name} AI cartoon character portrait`
+                    : `${card.name} captured booth portrait`
+                }
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <CharacterIllustrationSvg
+                characterId={card.resolvedCharacterId}
+                specialisation={card.specialisation}
+                className="w-full h-full"
+              />
+            )}
             <div
-              data-testid="svg-character-container"
-              className={`relative w-full overflow-hidden rounded-[8px] border-2 border-[#00D4FF]/80 shadow-[0_0_18px_rgba(0,212,255,0.28),inset_0_0_14px_rgba(0,212,255,0.3)] ${
-                isPrint ? (hasStrength2 ? 'h-[20.5mm]' : 'h-[24mm]') : hasStrength2 ? 'h-[118px]' : 'h-[144px]'
+              className={`absolute top-1 left-1 bg-[#030712]/80 border border-sky-400/50 text-white font-mono-nums font-bold uppercase tracking-wider rounded px-1 py-0.5 ${
+                isPrint ? 'text-[4.5px]' : 'text-[8px]'
               }`}
-              style={{ background: theme.artGradient }}
             >
-              {portraitUrl ? (
-                <img
-                  src={portraitUrl}
-                  alt={
-                    card.aiCharacterUrl
-                      ? `${card.name} AI cartoon character portrait`
-                      : `${card.name} captured booth portrait`
-                  }
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <CharacterIllustrationSvg
-                  characterId={card.resolvedCharacterId}
-                  specialisation={card.specialisation}
-                  className="w-full h-full"
-                />
-              )}
-              <div
-                className={`absolute top-1 left-1 bg-[#030712]/80 border border-sky-400/50 text-white font-mono-nums font-bold uppercase tracking-wider rounded px-1 py-0.5 ${
-                  isPrint ? 'text-[4.5px]' : 'text-[8px]'
-                }`}
-              >
-                {card.aiCharacterUrl
+              {card.personaId && card.personaId !== 'none'
+                ? `${getPersona(card.personaId).emoji} ${getPersona(card.personaId).label.toUpperCase()} EDITION`
+                : card.aiCharacterUrl
                   ? card.cartoonStyle === 'pencil-sketch'
                     ? 'SKETCH EDITION'
                     : 'CARTOON EDITION'
-                  : theme.typeLabel}
-              </div>
-              <div
-                className={`absolute bottom-1 right-1 bg-[#030712]/85 border border-sky-400/45 text-sky-300 font-mono-nums font-bold rounded px-1 py-0.5 ${
-                  isPrint ? 'text-[5px]' : 'text-[8.5px]'
-                }`}
-              >
-                #{String(card.cardSerial).padStart(3, '0')}
-              </div>
-            </div>
-
-            {/* Creative Neon Tagline Banner */}
-            <div
-              className={`mt-1 bg-gradient-to-r from-sky-100 via-white to-sky-100 text-[#030712] border border-sky-300/60 rounded-[4px] px-1.5 py-0.5 text-center font-bold truncate ${
-                isPrint ? 'text-[5.3px]' : 'text-[9.5px]'
-              }`}
-            >
-              {card.tagline}
+                  : character.label}
             </div>
           </div>
 
-          {/* 3. Rephrased Executive Strength 1 & Strength 2 Rows */}
-          <div className={isPrint ? 'space-y-[1mm]' : 'space-y-1.5'}>
-            <div
-              className={`rounded-[5px] border px-2 ${isPrint ? 'py-[1mm]' : 'py-1.5'}`}
-              style={{ backgroundColor: theme.moveBoxBg, borderColor: theme.moveBorder }}
-            >
-              <div className="flex items-start gap-1.5">
-                <div className="flex items-center gap-0.5 pt-0.5 shrink-0" aria-hidden="true">
-                  <span
-                    className={`rounded-full flex items-center justify-center bg-sky-400 text-[#030712] ${
-                      isPrint ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'
-                    }`}
-                  >
-                    <Star className={isPrint ? 'w-1.5 h-1.5 fill-current' : 'w-2 h-2 fill-current'} />
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span
-                      className={`font-display font-extrabold uppercase tracking-wide text-sky-300 ${
-                        isPrint ? 'text-[5.5px]' : 'text-[9.5px]'
-                      }`}
-                    >
-                      Strength 01
-                    </span>
-                    <span
-                      className={`font-mono-nums font-bold text-white/80 ${
-                        isPrint ? 'text-[5px]' : 'text-[8.5px]'
-                      }`}
-                    >
-                      +30 IMPACT
-                    </span>
-                  </div>
-                  <p
-                    className={`font-semibold text-white leading-tight line-clamp-2 ${
-                      isPrint ? 'text-[6px]' : 'text-[11px]'
-                    }`}
-                  >
-                    {card.strength1}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {hasStrength2 && (
-              <div
-                data-testid="card-strength-2"
-                className={`rounded-[5px] border px-2 ${isPrint ? 'py-[1mm]' : 'py-1.5'}`}
-                style={{ backgroundColor: theme.moveBoxBg, borderColor: theme.moveBorder }}
-              >
-                <div className="flex items-start gap-1.5">
-                  <div className="flex items-center pt-0.5 shrink-0" aria-hidden="true">
-                    <span
-                      className={`rounded-full flex items-center justify-center bg-white text-[#030712] ${
-                        isPrint ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'
-                      }`}
-                    >
-                      <Flame className={isPrint ? 'w-1.5 h-1.5 fill-current' : 'w-2 h-2 fill-current'} />
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <span
-                        className={`font-display font-extrabold uppercase tracking-wide text-sky-300 ${
-                          isPrint ? 'text-[5.5px]' : 'text-[9.5px]'
-                        }`}
-                      >
-                        Strength 02
-                      </span>
-                      <span
-                        className={`font-mono-nums font-bold text-white/80 ${
-                          isPrint ? 'text-[5px]' : 'text-[8.5px]'
-                        }`}
-                      >
-                        +20 EDGE
-                      </span>
-                    </div>
-                    <p
-                      className={`font-semibold text-white leading-tight line-clamp-2 ${
-                        isPrint ? 'text-[6px]' : 'text-[11px]'
-                      }`}
-                    >
-                      {card.strength2}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Section: Growth Edge (Weakness) + Keywords + QR + Motivational Line */}
-        <div className={`relative z-10 ${isPrint ? 'space-y-[1mm]' : 'space-y-1.5'}`}>
-          <div className="flex items-center justify-between gap-1.5 border-t border-sky-400/25 pt-1">
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="flex items-start gap-1">
-                <ShieldAlert
-                  className={`shrink-0 mt-0.5 text-sky-300 ${isPrint ? 'w-2 h-2' : 'w-3 h-3'}`}
-                  aria-hidden="true"
-                />
-                <div className="min-w-0">
-                  <span
-                    className={`block font-bold uppercase tracking-wider text-sky-300 ${
-                      isPrint ? 'text-[4.8px]' : 'text-[8px]'
-                    }`}
-                  >
-                    Growth Edge (Weakness)
-                  </span>
-                  <p
-                    className={`font-medium text-white leading-tight line-clamp-2 ${
-                      isPrint ? 'text-[5.5px]' : 'text-[9.5px]'
-                    }`}
-                  >
-                    {card.weakness}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-0.5 pt-0.5">
-                {card.keywords.map((kw) => (
-                  <span
-                    key={kw}
-                    className={`font-semibold bg-sky-400/15 border border-sky-400/35 rounded px-1 py-0.5 text-sky-100 truncate max-w-full ${
-                      isPrint ? 'text-[4.5px]' : 'text-[8px]'
-                    }`}
-                  >
-                    {kw}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="shrink-0 bg-white p-0.5 rounded border border-sky-300">
-              <QrCodeImage
-                text={qrText}
-                size={220}
-                className={isPrint ? 'w-[12mm] h-[12mm]' : 'w-14 h-14'}
-                alt={`Plain-text QR code for ${card.name}`}
-              />
-            </div>
-          </div>
-
-          {/* Bottom Collector Motivational Box */}
-          <div
-            data-testid="card-motivational-box"
-            className={`rounded-[5px] border bg-[#020817]/95 ${
-              isPrint ? 'px-1.5 py-[0.8mm]' : 'px-2 py-1'
+          {/* 3. Two-line intro */}
+          <p
+            data-testid="card-intro"
+            className={`italic text-[#030712] leading-[1.25] bg-gradient-to-r from-sky-100 via-white to-sky-100 border border-sky-300/60 rounded-[4px] ${
+              isPrint ? 'text-[5.6px] px-1.5 py-[0.7mm]' : 'text-[10px] px-2 py-1'
             }`}
-            style={{ borderColor: theme.loreBorder }}
           >
-            <span
-              className={`block font-display font-extrabold uppercase tracking-wider text-[#00D4FF] text-center ${
-                isPrint ? 'text-[4.8px] mb-[0.2mm]' : 'text-[8px] mb-0.5'
-              }`}
-            >
-              Motivational
-            </span>
-            <p
-              className={`font-semibold text-white leading-tight text-center line-clamp-2 ${
-                isPrint ? 'text-[5.2px]' : 'text-[9px]'
-              }`}
-            >
-              “{card.motivationalLine}”
-            </p>
-          </div>
+            {card.intro}
+          </p>
+
+          {/* 4. One-word stats */}
+          <dl data-testid="card-stats" className={`grid grid-cols-3 ${isPrint ? 'gap-[0.9mm]' : 'gap-1.5'}`}>
+            {STAT_ROWS.map((row, i) => (
+              <div
+                key={row.key}
+                className={`min-w-0 rounded-[5px] border text-center ${isPrint ? 'px-[0.8mm] py-[0.7mm]' : 'px-1 py-1 stat-pop'}`}
+                style={{ backgroundColor: theme.moveBoxBg, borderColor: theme.moveBorder, '--i': i } as React.CSSProperties}
+              >
+                <dt
+                  className={`font-display font-extrabold uppercase tracking-wide text-sky-300 ${
+                    isPrint ? 'text-[4.6px]' : 'text-[8px]'
+                  }`}
+                >
+                  {row.label}
+                </dt>
+                <dd
+                  className={`font-display font-extrabold text-white truncate leading-tight ${
+                    isPrint ? 'text-[7.4px]' : 'text-[13px]'
+                  }`}
+                >
+                  {card[row.key]}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </div>
     </article>

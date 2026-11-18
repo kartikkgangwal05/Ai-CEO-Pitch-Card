@@ -8,19 +8,23 @@ import {
   Upload,
   Wand2,
 } from 'lucide-react';
-import type { CartoonStyleId, Specialisation } from '../types/pitch';
-import { CARTOON_STYLE_OPTIONS } from '../utils/pitch';
+import type { CartoonStyleId, PersonaId, Specialisation } from '../types/pitch';
+import { CARTOON_STYLE_OPTIONS, PERSONA_OPTIONS } from '../utils/pitch';
+import { AnimatePresence, motion } from 'motion/react';
+import { playTick } from '../utils/sfx';
 
 interface CameraCharacterCaptureProps {
   capturedPhotoUrl: string;
   aiCharacterUrl: string;
   characterPrompt: string;
   cartoonStyle: CartoonStyleId;
+  personaId: PersonaId;
   specialisation: Specialisation;
   isGeneratingCharacter: boolean;
   characterError: string | null;
   onPhotoCaptured: (dataUrl: string) => void;
   onCartoonStyleChange: (style: CartoonStyleId) => void;
+  onPersonaChange: (persona: PersonaId) => void;
   onPromptChange: (prompt: string) => void;
   onGenerateAiCharacter: (isEdit?: boolean) => void;
   onClearMedia: () => void;
@@ -56,11 +60,13 @@ export function CameraCharacterCapture({
   aiCharacterUrl,
   characterPrompt,
   cartoonStyle,
+  personaId,
   specialisation,
   isGeneratingCharacter,
   characterError,
   onPhotoCaptured,
   onCartoonStyleChange,
+  onPersonaChange,
   onPromptChange,
   onGenerateAiCharacter,
   onClearMedia,
@@ -70,8 +76,14 @@ export function CameraCharacterCapture({
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraStatusError, setCameraStatusError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [flash, setFlash] = useState(false);
+  const snapTimers = useRef<number[]>([]);
 
   const stopCamera = () => {
+    snapTimers.current.forEach((t) => window.clearTimeout(t));
+    snapTimers.current = [];
+    setCountdown(null);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -113,6 +125,34 @@ export function CameraCharacterCapture({
       stopCamera();
       setCameraStatusError('Camera permission denied or no webcam found. You can upload a photo instead.');
     }
+  };
+
+  const clearSnapTimers = () => {
+    snapTimers.current.forEach((t) => window.clearTimeout(t));
+    snapTimers.current = [];
+    setCountdown(null);
+  };
+
+  /** 3-2-1 countdown with ticks, then a shutter flash and capture. */
+  const startSnapCountdown = () => {
+    if (countdown !== null) return;
+    [3, 2, 1].forEach((n, i) => {
+      snapTimers.current.push(
+        window.setTimeout(() => {
+          setCountdown(n);
+          playTick(false);
+        }, i * 900)
+      );
+    });
+    snapTimers.current.push(
+      window.setTimeout(() => {
+        setCountdown(null);
+        playTick(true);
+        setFlash(true);
+        handleSnapPhoto();
+        window.setTimeout(() => setFlash(false), 450);
+      }, 3 * 900)
+    );
   };
 
   const handleSnapPhoto = () => {
@@ -159,6 +199,13 @@ export function CameraCharacterCapture({
       data-testid="camera-character-studio"
       className="rounded-xl border border-sky-400/30 bg-[#040A17] p-3.5 space-y-3"
     >
+      {flash && (
+        <div
+          aria-hidden="true"
+          className="no-print pointer-events-none fixed inset-0 z-[150] bg-white"
+          style={{ animation: 'snap-flash 0.45s ease-out forwards' }}
+        />
+      )}
       <div className="flex items-center justify-between gap-2">
         <div>
           <span className="text-xs font-semibold text-white">Camera → AI Character & Sketch Studio</span>
@@ -183,7 +230,7 @@ export function CameraCharacterCapture({
       <div>
         <span className="block text-[11px] font-medium text-sky-200 mb-1.5">Character / Sketch Style</span>
         <div className="flex flex-wrap gap-1.5">
-          {CARTOON_STYLE_OPTIONS.map((style) => {
+          {CARTOON_STYLE_OPTIONS.filter((style) => !style.hidden).map((style) => {
             const active = cartoonStyle === style.id;
             return (
               <button
@@ -204,6 +251,37 @@ export function CameraCharacterCapture({
         </div>
       </div>
 
+      {/* Character persona: costume + world the AI dresses the person in */}
+      <div>
+        <span className="block text-[11px] font-semibold text-white mb-1.5">
+          Character persona <span className="text-sky-300/75 font-normal">(AI dresses you up)</span>
+        </span>
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5" role="group" aria-label="Character persona">
+          {PERSONA_OPTIONS.map((persona) => {
+            const active = personaId === persona.id;
+            return (
+              <button
+                key={persona.id}
+                type="button"
+                data-testid={`persona-${persona.id}`}
+                onClick={() => onPersonaChange(persona.id)}
+                aria-pressed={active}
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border px-1.5 py-2 text-center transition-all cursor-pointer ${
+                  active
+                    ? 'bg-[#00D4FF] text-[#030712] border-[#00D4FF] shadow-[0_0_16px_rgba(0,212,255,0.55)] scale-[1.04]'
+                    : 'bg-[#081226] text-sky-100 border-sky-400/25 hover:border-sky-300 hover:-translate-y-0.5'
+                }`}
+              >
+                <span className="text-lg leading-none" aria-hidden="true">
+                  {persona.emoji}
+                </span>
+                <span className="text-[10px] font-bold leading-tight whitespace-nowrap">{persona.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Viewport: Live Webcam OR Captured / Cartoonized Preview */}
       {isCameraOpen ? (
         <div className="space-y-2">
@@ -218,15 +296,36 @@ export function CameraCharacterCapture({
             <div className="absolute top-2 left-2 bg-[#030712]/80 border border-sky-400/40 rounded px-2 py-0.5 text-[10px] font-mono-nums text-[#00D4FF]">
               LIVE CAMERA
             </div>
+            {/* Face guide */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-1/2 top-1/2 h-[78%] w-[52%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2 border-dashed border-[#00D4FF]/60"
+            />
+            <AnimatePresence>
+              {countdown !== null && (
+                <motion.div
+                  key={countdown}
+                  className="absolute inset-0 flex items-center justify-center bg-black/25 font-display text-[9rem] font-extrabold leading-none text-white drop-shadow-[0_0_30px_rgba(0,212,255,0.9)]"
+                  initial={{ opacity: 0, scale: 2.2 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.6 }}
+                  transition={{ duration: 0.35 }}
+                >
+                  {countdown}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleSnapPhoto}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#00D4FF] hover:bg-sky-300 text-[#030712] text-xs font-bold py-2.5 px-3 cursor-pointer"
+              onClick={startSnapCountdown}
+              disabled={countdown !== null}
+              className="flex-1 disabled:opacity-60 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#00D4FF] hover:bg-sky-300 text-[#030712] text-xs font-bold py-2.5 px-3 cursor-pointer"
             >
               <Camera className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Snap & Cartoonify</span>
+              <span>{countdown !== null ? 'Smile…' : 'Snap in 3… (Cartoonify)'}</span>
             </button>
             <button
               type="button"

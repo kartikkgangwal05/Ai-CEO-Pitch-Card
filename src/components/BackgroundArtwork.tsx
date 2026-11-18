@@ -4,6 +4,11 @@ export function BackgroundArtwork() {
       aria-hidden="true"
       className="no-print fixed inset-0 pointer-events-none overflow-hidden z-0 select-none"
     >
+      {/* Drifting colour orbs */}
+      <div className="bg-orb -left-[8vw] top-[8vh] h-[42vmin] w-[42vmin] bg-cyan-500/20" />
+      <div className="bg-orb -right-[6vw] top-[30vh] h-[50vmin] w-[50vmin] bg-violet-600/20" style={{ animationDelay: '-7s', animationDuration: '28s' }} />
+      <div className="bg-orb bottom-[-10vh] left-[30vw] h-[46vmin] w-[46vmin] bg-blue-600/20" style={{ animationDelay: '-14s', animationDuration: '25s' }} />
+
       {/* Top-Left Subtle Robo-Cat & Cyber Circuit Motif */}
       <svg
         viewBox="0 0 240 240"

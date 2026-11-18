@@ -4,6 +4,9 @@ import {
   EXACT_SYSTEM_PROMPT,
   buildCharacterGenerationPrompt,
   buildFallbackPitch,
+  buildFunText,
+  oneWord,
+  PERSONA_OPTIONS,
   estimateReadSeconds,
   extractJsonObject,
   formatQrPlainText,
@@ -29,35 +32,44 @@ const BASE_STUDENT: PitchInput = {
   aiCharacterUrl: '',
   characterPrompt: '',
   cartoonStyle: 'anime-hero',
+  personaId: 'none',
   stickerFont: 'cartoon',
   strength1: 'good at excel and BI dashboards',
-  strength2: 'automated SQL reporting',
+  strength2: '',
   weakness: 'overthinking details',
+  hobby: 'cricket',
   dreamRole: 'Product Analyst',
   tagline: '',
   motivationalLine: '',
   tone: 'Confident',
 };
 
-test('exact system prompt matches specification', () => {
-  assert.ok(EXACT_SYSTEM_PROMPT.includes('#DYPAICoE launch, Pune'));
-  assert.ok(EXACT_SYSTEM_PROMPT.includes('70-80 words'));
-  assert.ok(EXACT_SYSTEM_PROMPT.includes('linkedin_headline (max 200 characters'));
+test('system prompt demands a funny title, two-line intro and one-word stats', () => {
+  assert.ok(EXACT_SYSTEM_PROMPT.includes('title'));
+  assert.ok(EXACT_SYSTEM_PROMPT.includes('exactly two short sentences'));
+  assert.ok(EXACT_SYSTEM_PROMPT.includes('EXACTLY ONE WORD'));
 });
 
-test('validatePitchInput allows optional currentPosition and optional dreamRole for Owners/Directors', () => {
-  const invalidStudent = validatePitchInput({ ...BASE_STUDENT, name: 'A', dreamRole: '' });
-  assert.ok(invalidStudent.name);
-  assert.ok(invalidStudent.dreamRole);
+test('validatePitchInput only requires a name now', () => {
+  const invalid = validatePitchInput({ ...BASE_STUDENT, name: 'A' });
+  assert.ok(invalid.name);
 
-  const validOwner = validatePitchInput({
+  const valid = validatePitchInput({
     ...BASE_STUDENT,
-    visitorType: 'Company Owner / Founder',
-    specialisation: 'Executive Leadership',
-    currentPosition: '',
+    strength1: '',
+    weakness: '',
+    hobby: '',
     dreamRole: '',
+    currentPosition: '',
   });
-  assert.deepEqual(validOwner, {});
+  assert.deepEqual(valid, {});
+});
+
+test('oneWord keeps only the first clean word, capitalised', () => {
+  assert.equal(oneWord('coffee addiction', 'X'), 'Coffee');
+  assert.equal(oneWord('  over-thinking!!', 'X'), 'Over');
+  assert.equal(oneWord('', 'Fallback'), 'Fallback');
+  assert.equal(oneWord(undefined, 'Fallback'), 'Fallback');
 });
 
 test('refineStrengthTerm and refineWeaknessTerm upgrade casual phrasing into executive terms', () => {
@@ -105,45 +117,41 @@ test('selectSmartCharacter matches Shinchan/Doraemon/Shizuka/Captain personas fr
   );
 });
 
-test('buildFallbackPitch generates polished strengths, weakness, tagline, motivational line, and valid pitch', () => {
+test('buildFallbackPitch makes a funny title, two-line intro and one-word stats', () => {
   const result = buildFallbackPitch(BASE_STUDENT, 1);
-  const words = result.pitch.trim().split(/\s+/).length;
-  assert.ok(words >= 66 && words <= 85, `Expected ~70-80 words, got ${words}`);
-  assert.match(result.pitch, /\[.+\]/);
-  assert.match(result.pitch, /[.!?]$/);
-  assert.match(result.pitch, /commercial|outcomes|stakeholder|decision/i);
-  assert.equal(/hardworking|eager to learn/i.test(result.pitch), false);
-  assert.ok(result.linkedin_headline.length <= 200);
+  assert.ok(result.title.length > 3 && result.title.length <= 30);
+  assert.equal(result.intro.split(/[.!?]\s/).filter(Boolean).length, 2);
+  assert.equal(result.strength1, 'Good');
+  assert.equal(result.weakness, 'Overthinking');
+  assert.equal(result.hobby, 'Cricket');
+  assert.equal(result.strength2, '');
+  assert.equal(result.pitch, result.intro);
   assert.equal(result.keywords.length, 3);
-  assert.ok(result.tagline.length > 5);
-  assert.ok(result.motivationalLine.length > 10);
-  assert.notEqual(result.weakness.toLowerCase(), 'overthinking details');
 });
 
-test('Owner / Director card handles optional currentPosition and optional Strength 2 gracefully', () => {
+test('blank stats are invented as single words', () => {
+  for (let salt = 0; salt < 20; salt++) {
+    const t = buildFunText({ name: 'Test Person', currentPosition: '', strength1: '', weakness: '', hobby: '' }, salt);
+    for (const v of [t.strength1, t.weakness, t.hobby]) assert.match(v, /^\S+$/);
+  }
+});
+
+test('Owner / Director card still resolves a character and empty strength 2', () => {
   const result = buildFallbackPitch({
+    ...BASE_STUDENT,
     visitorType: 'Company Owner / Founder',
     name: 'Vikram Rao',
-    currentPosition: '',
     specialisation: 'Executive Leadership',
-    characterId: 'auto',
-    capturedPhotoUrl: '',
-    aiCharacterUrl: '',
-    characterPrompt: '',
-    cartoonStyle: 'anime-hero',
     stickerFont: 'futurist',
     strength1: 'building ventures',
-    strength2: '',
     weakness: 'impatient with slow decisions',
+    hobby: '',
     dreamRole: '',
-    tagline: '',
-    motivationalLine: '',
-    tone: 'Confident',
   });
   assert.equal(result.resolvedCharacterId, 'visionary-captain');
   assert.equal(result.strength2, '');
-  assert.match(result.pitch, /Founder|Managing Leader|DYPAICoE/i);
-  assert.match(result.weakness, /Milestone|Velocity/i);
+  assert.equal(result.strength1, 'Building');
+  assert.match(result.hobby, /^\S+$/);
 });
 
 test('every visitor gets a distinct mini motivational line', () => {
@@ -194,32 +202,34 @@ test('pushVisitorToQueue keeps at most the last 4 visitors', () => {
   assert.equal(queue[3].id, 'v-2');
 });
 
-test('normalizePitchResponse uses AI-rephrased strengths/weakness and keeps strength2 empty when omitted', () => {
+test('normalizePitchResponse keeps typed words and fills blanks from the AI, one word each', () => {
   const aiPayload = {
-    pitch:
-      'I am Aarav Kulkarni, a PGDM scholar at Dr. D. Y. Patil B-School, Pune. My strength is analytical modeling proved in [cite BI outcome]. I aim to serve as Product Analyst.',
-    linkedin_headline: 'PGDM Analytics | BI Strategy | Product Analyst',
-    keywords: ['SQL', 'Product Analytics', 'KPI Design'],
-    refined_strength1: 'Executive BI Telemetry & SQL Modeling',
-    refined_strength2: 'Cross-Functional Pricing Analytics',
-    refined_weakness: 'Balancing Visual Craft with Rapid Delivery',
-    tagline: 'Turning complex telemetry into decisive action.',
-    motivational_line: 'Aarav, let crisp evidence speak in every Product Analyst room.',
+    title: 'The Spreadsheet Sorcerer',
+    intro: 'Aarav bends pivot tables to his will. Entire departments fear his VLOOKUP.',
+    strength: 'Excel wizardry',
+    weakness: 'Chai breaks',
+    hobby: 'cricket nets',
+    power: 140,
     recommended_character: 'data-wizard',
   };
 
-  const withStrength2 = normalizePitchResponse(aiPayload, BASE_STUDENT);
-  assert.equal(withStrength2.source, 'ai');
-  assert.equal(withStrength2.strength1, 'Executive BI Telemetry & SQL Modeling');
-  assert.equal(withStrength2.strength2, 'Cross-Functional Pricing Analytics');
-  assert.equal(withStrength2.weakness, 'Balancing Visual Craft with Rapid Delivery');
-  assert.equal(withStrength2.resolvedCharacterId, 'data-wizard');
+  const typed = normalizePitchResponse(aiPayload, BASE_STUDENT);
+  assert.equal(typed.source, 'ai');
+  assert.equal(typed.title, 'The Spreadsheet Sorcerer');
+  assert.equal(typed.pitch, typed.intro);
+  assert.equal(typed.strength1, 'Good'); // typed by the person, wins over the AI
+  assert.equal(typed.resolvedCharacterId, 'data-wizard');
 
-  const withoutStrength2 = normalizePitchResponse(aiPayload, { ...BASE_STUDENT, strength2: '' });
-  assert.equal(withoutStrength2.strength2, '');
-  const qrWithoutS2 = formatQrPlainText({ ...BASE_STUDENT, ...withoutStrength2 });
-  assert.equal(qrWithoutS2.includes('Strength 2:'), false);
-  assert.ok(qrWithoutS2.includes('Motivational:'));
+  const blank = normalizePitchResponse(aiPayload, { ...BASE_STUDENT, strength1: '', weakness: '', hobby: '' });
+  assert.equal(blank.strength1, 'Excel');
+  assert.equal(blank.weakness, 'Chai');
+  assert.equal(blank.hobby, 'Cricket');
+});
+
+test('normalizePitchResponse falls back when the AI omits title or intro', () => {
+  const result = normalizePitchResponse({ title: '', intro: 'x' }, BASE_STUDENT);
+  assert.equal(result.source, 'template');
+  assert.ok(result.title.length > 0);
 });
 
 test('buildCharacterGenerationPrompt enforces stylized cartoon art, high-fidelity 3D mascot descriptors, and edit workflows', () => {
@@ -276,6 +286,57 @@ test('extractJsonObject parses plain and fenced JSON responses', () => {
 
   const fenced = extractJsonObject('```json\n{"pitch":"fenced"}\n```') as { pitch: string };
   assert.equal(fenced.pitch, 'fenced');
+});
+
+test('persona swaps wardrobe and background for the costume, and none leaves prompts unchanged', () => {
+  const warrior = buildCharacterGenerationPrompt({
+    specialisation: 'Marketing',
+    visitorType: 'PGDM Student',
+    cartoonStyle: 'comic-pop',
+    personaId: 'warrior',
+  });
+  assert.match(warrior, /battle warrior/i);
+  assert.match(warrior, /face, hairstyle, glasses/i);
+  assert.equal(/midnight-navy/i.test(warrior), false);
+  assert.equal(/tailored|blazer/i.test(warrior), false);
+
+  const plain = buildCharacterGenerationPrompt({
+    specialisation: 'Marketing',
+    visitorType: 'PGDM Student',
+    cartoonStyle: 'comic-pop',
+    personaId: 'none',
+  });
+  assert.equal(/battle warrior/i.test(plain), false);
+  assert.match(plain, /midnight-navy/i);
+});
+
+test('persona picks themed fallback titles and every persona has a prompt', () => {
+  const t = buildFunText({ name: 'Test', currentPosition: '', strength1: '', weakness: '', hobby: '', personaId: 'wizard' }, 0);
+  assert.match(t.title, /Wi-Fi Wizard|Archmage of Excel|Sorcerer of Slack/);
+  for (const p of PERSONA_OPTIONS.filter((x) => x.id !== 'none')) {
+    assert.ok(p.prompt.length > 40 && p.flavor.length > 5, p.id);
+  }
+});
+
+test('modern styles use the clean portrait prompt with likeness and optional style reference', () => {
+  const plain = buildCharacterGenerationPrompt({
+    specialisation: 'Marketing',
+    visitorType: 'PGDM Student',
+    cartoonStyle: 'line-art',
+  });
+  assert.match(plain, /ligne-claire/);
+  assert.match(plain, /Likeness is the top priority/);
+  assert.equal(/corporate mascot|STYLE REFERENCE/.test(plain), false);
+
+  const withRef = buildCharacterGenerationPrompt({
+    specialisation: 'Marketing',
+    visitorType: 'PGDM Student',
+    cartoonStyle: '3d-animated',
+    personaId: 'astronaut',
+    hasStyleReference: true,
+  });
+  assert.match(withRef, /STYLE REFERENCE only/);
+  assert.match(withRef, /astronaut suit/);
 });
 
 test('buildCharacterGenerationPrompt generates clean Ink Sketch direction for pencil-sketch style', () => {

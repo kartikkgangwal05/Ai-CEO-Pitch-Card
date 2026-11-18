@@ -1,17 +1,20 @@
 import 'dotenv/config';
 import express from 'express';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import {
   EXACT_SYSTEM_PROMPT,
   buildCharacterGenerationPrompt,
+  getPersona,
   extractJsonObject,
   normalizePitchResponse,
   validatePitchInput,
 } from './src/utils/pitch.ts';
 import type {
   CartoonStyleId,
+  PersonaId,
   PitchInput,
   Specialisation,
   StickerFontId,
@@ -93,13 +96,83 @@ async function callAnthropicJson(params: {
   }
 }
 
+/** Optional style reference image for an art style: public/styles/<styleId>.(jpg|jpeg|png|webp). */
+function loadStyleReference(styleId: string): { mimeType: string; data: string } | null {
+  if (!/^[a-z0-9-]+$/.test(styleId)) return null;
+  const types: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+  for (const [ext, mimeType] of Object.entries(types)) {
+    const file = path.resolve(__dirname, 'public', 'styles', `${styleId}.${ext}`);
+    if (fs.existsSync(file)) {
+      return { mimeType, data: fs.readFileSync(file).toString('base64') };
+    }
+  }
+  return null;
+}
+
+/** Image models we prefer, best first. Google renames these often, so we also ask the API what exists. */
+const PREFERRED_IMAGE_MODELS = [
+  'gemini-3.1-flash-image',
+  'gemini-3.1-flash-image-preview',
+  'gemini-3-pro-image',
+  'gemini-3-pro-image-preview',
+  'gemini-2.5-flash-image',
+  'gemini-2.5-flash-image-preview',
+];
+let imageModelCandidates: string[] | null = null;
+let workingImageModel: string | null = null;
+
+/** Ordered list of Gemini image models this key can actually call (cached after the first lookup). */
+async function getImageModelCandidates(ai: GoogleGenAI): Promise<string[]> {
+  const envModel = process.env.GEMINI_IMAGE_MODEL?.trim();
+  if (imageModelCandidates) return imageModelCandidates;
+  let available: string[] = [];
+  try {
+    const pager = await ai.models.list({ config: { pageSize: 200 } });
+    for await (const m of pager) {
+      const id = (m.name ?? '').replace(/^models\//, '');
+      const actions = (m as { supportedActions?: string[] }).supportedActions ?? [];
+      if (/gemini/i.test(id) && /image/i.test(id) && (actions.length === 0 || actions.includes('generateContent'))) {
+        available.push(id);
+      }
+    }
+  } catch (err) {
+    console.warn('[image] could not list models, using defaults:', err instanceof Error ? err.message : err);
+    available = [];
+  }
+  const ordered = available.length
+    ? [
+        ...PREFERRED_IMAGE_MODELS.filter((m) => available.includes(m)),
+        ...available.filter((m) => !PREFERRED_IMAGE_MODELS.includes(m)).sort((a, b) => Number(/flash/.test(b)) - Number(/flash/.test(a))),
+      ]
+    : PREFERRED_IMAGE_MODELS;
+  imageModelCandidates = [envModel, ...ordered].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
+  console.log('[image] model candidates:', imageModelCandidates.join(', '));
+  return imageModelCandidates;
+}
+
+/** Turn a Gemini error into something a booth operator can act on. */
+function explainGeminiError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/API key not valid|API_KEY_INVALID|PERMISSION_DENIED|401|403/i.test(msg)) return 'Gemini rejected the API key.';
+  if (/quota|RESOURCE_EXHAUSTED|429|billing/i.test(msg)) return 'Gemini image quota used up or billing not enabled for this key.';
+  if (/timed out/i.test(msg)) return 'Gemini took too long to draw the portrait.';
+  if (/not found|404|not supported/i.test(msg)) return 'No Gemini image model available for this key.';
+  return msg.slice(0, 160);
+}
+
+const isModelMissing = (err: unknown) =>
+  /not found|404|not supported|unsupported|does not support|INVALID_ARGUMENT.*model/i.test(err instanceof Error ? err.message : String(err));
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '15mb' }));
 
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', async (_req, res) => {
+    const ai = getGeminiClient();
+    const imageModels = ai ? await getImageModelCandidates(ai).catch(() => []) : [];
     res.json({
       ok: true,
+      imageModel: workingImageModel ?? imageModels[0] ?? null,
       aiConfigured: Boolean(getGeminiClient() || getAnthropicApiKey()),
       geminiConfigured: Boolean(getGeminiClient()),
       anthropicConfigured: Boolean(getAnthropicApiKey()),
@@ -118,10 +191,12 @@ async function startServer() {
       aiCharacterUrl: String(rawBody.aiCharacterUrl ?? ''),
       characterPrompt: String(rawBody.characterPrompt ?? ''),
       cartoonStyle: (rawBody.cartoonStyle as CartoonStyleId) || 'anime-hero',
+      personaId: (rawBody.personaId as PitchInput['personaId']) || 'none',
       stickerFont: (rawBody.stickerFont as StickerFontId) || 'cartoon',
       strength1: String(rawBody.strength1 ?? rawBody.strength ?? ''),
       strength2: String(rawBody.strength2 ?? ''),
       weakness: String(rawBody.weakness ?? ''),
+      hobby: String(rawBody.hobby ?? ''),
       dreamRole: String(rawBody.dreamRole ?? ''),
       tagline: String(rawBody.tagline ?? ''),
       motivationalLine: String(rawBody.motivationalLine ?? ''),
@@ -146,28 +221,20 @@ async function startServer() {
     }
 
     try {
-      const isVip = input.visitorType !== 'PGDM Student';
+      const typed = (label: string, value: string) =>
+        value.trim() ? `${label}: ${value.trim()} (use exactly this word)` : `${label}: (not given, invent a funny one-word answer)`;
       const userPrompt = [
-        `Visitor Profile: ${input.visitorType}`,
         `Name: ${input.name.trim()}`,
         input.currentPosition.trim()
-          ? `Current Position / Company: ${input.currentPosition.trim()}`
-          : 'Current Position: (optional / not specified)',
-        `Event Host: #DYPAICoE Launch, Dr. D. Y. Patil B-School, Pune`,
-        `Domain / Specialisation: ${input.specialisation}`,
-        `Raw Strength 1: ${input.strength1.trim()}`,
-        input.strength2.trim()
-          ? `Raw Strength 2: ${input.strength2.trim()}`
-          : 'Raw Strength 2: (NONE PROVIDED — return empty string "" for refined_strength2 and do NOT invent a second strength)',
-        `Raw Weakness: ${input.weakness.trim()}`,
-        `Target Role / Strategic Focus: ${input.dreamRole.trim() || (isVip ? 'Industry-Academia AI Collaboration & Growth' : 'Leadership Role')}`,
-        input.tagline.trim() ? `Tagline: ${input.tagline.trim()}` : 'Tagline: (craft 1 punchy tagline, max 10 words)',
-        input.motivationalLine.trim()
-          ? `Motivational line: ${input.motivationalLine.trim()}`
-          : 'Motivational line: (write 1 unique, inspiring motivational line tailored to this visitor, max 16 words)',
-        `Tone: ${input.tone}`,
-        'IMPORTANT TASK: Rephrase and upgrade Raw Strength 1, Raw Strength 2 (only if provided), and Raw Weakness into polished, executive-grade business terminology (never leave casual slang raw). Deliver a crisp, natural-sounding 30-second pitch with strong active verbs, concrete commercial value, and zero filler clichés ("hardworking team player", "passionate learner"). For a Company Owner / Founder or Director / CXO, frame the pitch and headline around executive leadership, market impact, and #DYPAICoE industry collaboration rather than job-seeking.',
-        'Return ONLY valid JSON with fields: pitch, linkedin_headline, keywords (array of 3 strings), refined_strength1, refined_strength2, refined_weakness, tagline, motivational_line, recommended_character.',
+          ? `Fun facts / what they do: ${input.currentPosition.trim()}`
+          : 'Fun facts: (none given, invent something light and relatable such as coffee, meetings, phone battery or snacks)',
+        getPersona(input.personaId).flavor
+          ? `Card persona: the person is drawn as ${getPersona(input.personaId).flavor}. Make the title and intro playfully match this theme.`
+          : 'Card persona: none (everyday portrait).',
+        typed('Strength', input.strength1),
+        typed('Weakness', input.weakness),
+        typed('Hobby', input.hobby),
+        'Return ONLY valid JSON with fields: title, intro, strength, weakness, hobby, power, recommended_character.',
       ].join('\n');
 
       if (anthropicKey) {
@@ -202,57 +269,19 @@ async function startServer() {
             responseSchema: {
               type: Type.OBJECT,
               properties: {
-                pitch: {
-                  type: Type.STRING,
-                  description:
-                    'A 30-second first-person intro/pitch (70-80 words) using polished executive terminology.',
-                },
-                linkedin_headline: {
-                  type: Type.STRING,
-                  description: 'Max 200 characters using | separators.',
-                },
-                keywords: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: '3 high-signal domain skills or executive pillars.',
-                },
-                refined_strength1: {
-                  type: Type.STRING,
-                  description: 'Rephrased executive version of Strength 1 (max 10 words).',
-                },
-                refined_strength2: {
-                  type: Type.STRING,
-                  description: 'Rephrased executive version of Strength 2 or empty string if omitted (max 10 words).',
-                },
-                refined_weakness: {
-                  type: Type.STRING,
-                  description: 'Constructive, interview-ready growth edge rephrasing of Raw Weakness (max 10 words).',
-                },
-                tagline: {
-                  type: Type.STRING,
-                  description: 'Punchy personal positioning tagline (max 10 words).',
-                },
-                motivational_line: {
-                  type: Type.STRING,
-                  description: 'Unique mini motivational line (10-16 words) tailored to this visitor.',
-                },
+                title: { type: Type.STRING, description: 'Funny 2-4 word epithet, max 28 chars, no name.' },
+                intro: { type: Type.STRING, description: 'Exactly two short punchy sentences, 14-24 words total.' },
+                strength: { type: Type.STRING, description: 'ONE word.' },
+                weakness: { type: Type.STRING, description: 'ONE word.' },
+                hobby: { type: Type.STRING, description: 'ONE word.' },
+                power: { type: Type.INTEGER, description: '60-99' },
                 recommended_character: {
                   type: Type.STRING,
                   description:
                     'Pick the best matching cartoon ID from: gadget-cat, mischief-maverick, harmony-ace, strategy-prodigy, visionary-captain, data-wizard.',
                 },
               },
-              required: [
-                'pitch',
-                'linkedin_headline',
-                'keywords',
-                'refined_strength1',
-                'refined_strength2',
-                'refined_weakness',
-                'tagline',
-                'motivational_line',
-                'recommended_character',
-              ],
+              required: ['title', 'intro', 'strength', 'weakness', 'hobby', 'power', 'recommended_character'],
             },
           },
         }),
@@ -362,13 +391,14 @@ async function startServer() {
       visitorType?: VisitorType;
       dreamRole?: string;
       cartoonStyle?: CartoonStyleId;
+      personaId?: PersonaId;
       customPrompt?: string;
       isEdit?: boolean;
     };
 
     const imageDataUrl = (rawBody.imageDataUrl ?? '').trim();
     const customPrompt = (rawBody.customPrompt ?? '').trim();
-    const resolvedStyle: CartoonStyleId = rawBody.cartoonStyle || 'anime-hero';
+    const resolvedStyle: CartoonStyleId = rawBody.cartoonStyle || 'bold-toon';
 
     const ai = getGeminiClient();
     if (!ai) {
@@ -376,8 +406,7 @@ async function startServer() {
         imageUrl: null,
         fallbackMode: 'comic-cel-shade',
         styleUsed: resolvedStyle,
-        notice:
-          'Applied Studio Comic & Sketch filter automatically (add GEMINI_API_KEY in Settings > Secrets for full AI character/sketch generation).',
+        notice: 'AI portrait unavailable (no GEMINI_API_KEY in .env). Used the offline cartoon filter instead.',
       });
       return;
     }
@@ -401,11 +430,19 @@ async function startServer() {
         });
       }
 
+      // Attach the style reference after the photo (only when transforming a photo, not when editing).
+      const styleRef = imageDataUrl && !rawBody.isEdit ? loadStyleReference(resolvedStyle) : null;
+      if (styleRef) {
+        parts.push({ inlineData: styleRef });
+      }
+
       const promptText = buildCharacterGenerationPrompt({
+        hasStyleReference: Boolean(styleRef),
         specialisation: rawBody.specialisation || 'Business Analytics',
         visitorType: rawBody.visitorType || 'PGDM Student',
         dreamRole: rawBody.dreamRole,
         cartoonStyle: resolvedStyle,
+        personaId: rawBody.personaId,
         customPrompt,
         isEdit: Boolean(rawBody.isEdit),
         hasReferencePhoto: Boolean(imageDataUrl),
@@ -413,20 +450,17 @@ async function startServer() {
 
       parts.push({ text: promptText });
 
-      const tryGenerateWithModel = async (modelId: 'gemini-3.1-flash-lite-image' | 'gemini-nano-banana-2.1') => {
-        const imageConfig =
-          modelId === 'gemini-nano-banana-2.1'
-            ? { aspectRatio: '4:3', imageSize: '1K' }
-            : { aspectRatio: '4:3' };
+      const tryGenerateWithModel = async (modelId: string) => {
+        const imageConfig = { aspectRatio: '4:3' };
 
         const response = await Promise.race([
           ai.models.generateContent({
             model: modelId,
             contents: { parts },
-            config: { imageConfig },
+            config: { responseModalities: ['IMAGE'], imageConfig },
           }),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`Image generation timed out on ${modelId}.`)), 25000)
+            setTimeout(() => reject(new Error(`Image generation timed out on ${modelId}.`)), 40000)
           ),
         ]);
 
@@ -439,18 +473,30 @@ async function startServer() {
         return '';
       };
 
+      // Use the model that worked last time first; only fall through to the next one if a model is missing.
+      const listed = await getImageModelCandidates(ai);
+      const candidates = workingImageModel ? [workingImageModel, ...listed.filter((m) => m !== workingImageModel)] : listed;
+
       let generatedImageUrl = '';
-      let usedModel = 'gemini-3.1-flash-lite-image';
-      try {
-        generatedImageUrl = await tryGenerateWithModel('gemini-3.1-flash-lite-image');
-      } catch (primaryErr) {
-        console.warn(
-          'gemini-3.1-flash-lite-image unavailable, trying gemini-nano-banana-2.1:',
-          primaryErr instanceof Error ? primaryErr.message : primaryErr
-        );
-        usedModel = 'gemini-nano-banana-2.1';
-        generatedImageUrl = await tryGenerateWithModel('gemini-nano-banana-2.1');
+      let usedModel = candidates[0];
+      let lastErr: unknown = null;
+      const started = Date.now();
+      for (const modelId of candidates) {
+        if (Date.now() - started > 55000) break;
+        try {
+          generatedImageUrl = await tryGenerateWithModel(modelId);
+          usedModel = modelId;
+          if (generatedImageUrl) {
+            workingImageModel = modelId;
+            break;
+          }
+        } catch (err) {
+          lastErr = err;
+          console.warn(`[image] ${modelId} failed:`, err instanceof Error ? err.message : err);
+          if (!isModelMissing(err)) break; // quota, key or timeout problems will not be fixed by another model
+        }
       }
+      if (!generatedImageUrl && lastErr) throw lastErr;
 
       if (!generatedImageUrl) {
         res.json({
@@ -470,22 +516,14 @@ async function startServer() {
         styleUsed: resolvedStyle,
       });
     } catch (err) {
-      const rawMessage = err instanceof Error ? err.message : 'Unable to generate character image.';
-      if (
-        /400|401|402|403|404|429|RESOURCE_EXHAUSTED|PERMISSION_DENIED|API_KEY_INVALID|NOT_FOUND|BILLING|QUOTA|timed out|unavailable/i.test(
-          rawMessage
-        )
-      ) {
-        res.json({
-          imageUrl: null,
-          fallbackMode: 'comic-cel-shade',
-          styleUsed: resolvedStyle,
-          notice:
-            'Applied Studio Comic & Sketch filter automatically (enable Gemini image access in Settings > Secrets for full AI character/sketch generation).',
-        });
-        return;
-      }
-      res.status(502).json({ error: rawMessage });
+      const reason = explainGeminiError(err);
+      console.warn('[image] falling back to offline filter:', reason);
+      res.json({
+        imageUrl: null,
+        fallbackMode: 'comic-cel-shade',
+        styleUsed: resolvedStyle,
+        notice: `AI portrait unavailable (${reason}) Used the offline cartoon filter instead.`,
+      });
     }
   });
 

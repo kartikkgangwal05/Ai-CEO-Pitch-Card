@@ -60,10 +60,10 @@ export function PitchForm({
       <div className="bg-[#050C1B] px-6 py-4 border-b border-sky-400/25 flex items-center justify-between gap-4">
         <div>
           <h2 id="visitor-intake-heading" className="text-base font-semibold text-white tracking-tight">
-            Collector Card Builder
+            Power Card Builder
           </h2>
           <p className="text-xs text-sky-200/80 mt-0.5">
-            AI rephrases raw strengths & weakness in background
+            Funny title, two-line intro and one-word stats, written by AI
           </p>
         </div>
 
@@ -136,7 +136,7 @@ export function PitchForm({
 
           <div>
             <label htmlFor="visitor-current-pos" className="block text-xs font-semibold text-white mb-1.5">
-              Current Position / Role <span className="text-sky-300/75 font-normal">(optional)</span>
+              Fun facts <span className="text-sky-300/75 font-normal">(optional, makes the jokes land)</span>
             </label>
             <input
               id="visitor-current-pos"
@@ -144,60 +144,30 @@ export function PitchForm({
               type="text"
               value={input.currentPosition}
               onChange={(e) => onChange('currentPosition', e.target.value)}
-              placeholder={isVip ? 'e.g., Founder & MD, Pune' : 'e.g., PGDM Scholar'}
+              placeholder="e.g., 5 chais a day, debugs at 2am"
               className="w-full rounded-xl border border-sky-400/30 bg-[#040A17] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors"
             />
           </div>
         </div>
 
-        {/* Domain / Specialisation + Target Role / Strategic Focus */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <div>
-            <label htmlFor="visitor-specialisation" className="block text-xs font-semibold text-white mb-1.5">
-              {isVip ? 'Domain / Focus' : 'Specialisation'}
-            </label>
-            <select
-              id="visitor-specialisation"
-              name="specialisation"
-              value={input.specialisation}
-              onChange={(e) => onChange('specialisation', e.target.value as Specialisation)}
-              className="w-full rounded-xl border border-sky-400/30 bg-[#040A17] px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors"
-            >
-              {SPECIALISATIONS.map((spec) => (
-                <option key={spec} value={spec}>
-                  {spec}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="visitor-dream-role" className="block text-xs font-semibold text-white mb-1.5">
-              {isVip ? (
-                <>
-                  Strategic Vision / Focus <span className="text-sky-300/75 font-normal">(optional)</span>
-                </>
-              ) : (
-                'Dream Role'
-              )}
-            </label>
-            <input
-              id="visitor-dream-role"
-              name="dreamRole"
-              type="text"
-              value={input.dreamRole}
-              onChange={(e) => onChange('dreamRole', e.target.value)}
-              placeholder={isVip ? 'e.g., AI Industry Partnerships' : 'e.g., Product Analyst'}
-              className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 bg-[#040A17] focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors ${
-                errors.dreamRole ? 'border-rose-500' : 'border-sky-400/30'
-              }`}
-            />
-            {errors.dreamRole && (
-              <p className="mt-1 text-xs text-rose-400" role="alert">
-                {errors.dreamRole}
-              </p>
-            )}
-          </div>
+        {/* Card theme */}
+        <div>
+          <label htmlFor="visitor-specialisation" className="block text-xs font-semibold text-white mb-1.5">
+            Card theme
+          </label>
+          <select
+            id="visitor-specialisation"
+            name="specialisation"
+            value={input.specialisation}
+            onChange={(e) => onChange('specialisation', e.target.value as Specialisation)}
+            className="w-full rounded-xl border border-sky-400/30 bg-[#040A17] px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors"
+          >
+            {SPECIALISATIONS.map((spec) => (
+              <option key={spec} value={spec}>
+                {spec}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Camera -> Cartoon Character Studio */}
@@ -206,11 +176,13 @@ export function PitchForm({
           aiCharacterUrl={input.aiCharacterUrl}
           characterPrompt={input.characterPrompt}
           cartoonStyle={input.cartoonStyle}
+          personaId={input.personaId}
           specialisation={input.specialisation}
           isGeneratingCharacter={isGeneratingCharacter}
           characterError={characterError}
           onPhotoCaptured={onPhotoCapturedAndCartoonify}
           onCartoonStyleChange={(style: CartoonStyleId) => onChange('cartoonStyle', style)}
+          onPersonaChange={(persona) => onChange('personaId', persona)}
           onPromptChange={(prompt) => onChange('characterPrompt', prompt)}
           onGenerateAiCharacter={onGenerateAiCharacter}
           onClearMedia={onClearCharacterMedia}
@@ -248,120 +220,35 @@ export function PitchForm({
           </div>
         </div>
 
-        {/* Strength 1 & Strength 2 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <div>
-            <label htmlFor="visitor-strength-1" className="block text-xs font-semibold text-white mb-1.5">
-              Strength 1 <span className="text-sky-300/75 font-normal">(AI refines)</span>
-            </label>
-            <input
-              id="visitor-strength-1"
-              name="strength1"
-              type="text"
-              value={input.strength1}
-              onChange={(e) => onChange('strength1', e.target.value)}
-              placeholder="e.g., good at excel & BI charts"
-              className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 bg-[#040A17] focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors ${
-                errors.strength1 ? 'border-rose-500' : 'border-sky-400/30'
-              }`}
-            />
-            {errors.strength1 && (
-              <p className="mt-1 text-xs text-rose-400" role="alert">
-                {errors.strength1}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="visitor-strength-2" className="block text-xs font-semibold text-white mb-1.5">
-              Strength 2 <span className="text-sky-300/75 font-normal">(optional — shown if filled)</span>
-            </label>
-            <input
-              id="visitor-strength-2"
-              name="strength2"
-              type="text"
-              value={input.strength2}
-              onChange={(e) => onChange('strength2', e.target.value)}
-              placeholder="Leave blank if 1 strength only"
-              className="w-full rounded-xl border border-sky-400/30 bg-[#040A17] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors"
-            />
-          </div>
-        </div>
-
-        {/* Weakness + Pitch Tone */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <div>
-            <label htmlFor="visitor-weakness" className="block text-xs font-semibold text-white mb-1.5">
-              Weakness <span className="text-sky-300/75 font-normal">(AI reframes cleanly)</span>
-            </label>
-            <input
-              id="visitor-weakness"
-              name="weakness"
-              type="text"
-              value={input.weakness}
-              onChange={(e) => onChange('weakness', e.target.value)}
-              placeholder="e.g., stage fear or overthinking"
-              className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 bg-[#040A17] focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors ${
-                errors.weakness ? 'border-rose-500' : 'border-sky-400/30'
-              }`}
-            />
-            {errors.weakness && (
-              <p className="mt-1 text-xs text-rose-400" role="alert">
-                {errors.weakness}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="visitor-tone" className="block text-xs font-semibold text-white mb-1.5">
-              Pitch Tone
-            </label>
-            <select
-              id="visitor-tone"
-              name="tone"
-              value={input.tone}
-              onChange={(e) => onChange('tone', e.target.value as Tone)}
-              className="w-full rounded-xl border border-sky-400/30 bg-[#040A17] px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors"
-            >
-              {TONES.map((tone) => (
-                <option key={tone} value={tone}>
-                  {tone}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Tagline + Motivational Line */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <div>
-            <label htmlFor="visitor-tagline" className="block text-xs font-semibold text-white mb-1.5">
-              1 Tagline <span className="text-sky-300/75 font-normal">(optional)</span>
-            </label>
-            <input
-              id="visitor-tagline"
-              name="tagline"
-              type="text"
-              value={input.tagline}
-              onChange={(e) => onChange('tagline', e.target.value)}
-              placeholder="Auto-crafted if left blank"
-              className="w-full rounded-xl border border-sky-400/30 bg-[#040A17] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="visitor-motivation" className="block text-xs font-semibold text-white mb-1.5">
-              Motivational Line <span className="text-sky-300/75 font-normal">(optional)</span>
-            </label>
-            <input
-              id="visitor-motivation"
-              name="motivationalLine"
-              type="text"
-              value={input.motivationalLine}
-              onChange={(e) => onChange('motivationalLine', e.target.value)}
-              placeholder="Unique line added automatically"
-              className="w-full rounded-xl border border-sky-400/30 bg-[#040A17] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors"
-            />
+        {/* One-word stats (all optional: AI invents funny ones when blank) */}
+        <div>
+          <span className="block text-xs font-semibold text-white mb-1.5">
+            Three words <span className="text-sky-300/75 font-normal">(one word each, leave blank and AI picks funny ones)</span>
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {(
+              [
+                { field: 'strength1', label: 'Strength', placeholder: 'e.g., Hustle' },
+                { field: 'weakness', label: 'Weakness', placeholder: 'e.g., Snacks' },
+                { field: 'hobby', label: 'Hobby', placeholder: 'e.g., Karaoke' },
+              ] as const
+            ).map(({ field, label, placeholder }) => (
+              <div key={field}>
+                <label htmlFor={`visitor-${field}`} className="block text-[11px] font-medium text-sky-200 mb-1">
+                  {label}
+                </label>
+                <input
+                  id={`visitor-${field}`}
+                  name={field}
+                  type="text"
+                  maxLength={14}
+                  value={input[field]}
+                  onChange={(e) => onChange(field, e.target.value.replace(/\s+/g, ''))}
+                  placeholder={placeholder}
+                  className="w-full rounded-xl border border-sky-400/30 bg-[#040A17] px-3.5 py-2.5 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:border-sky-400 transition-colors"
+                />
+              </div>
+            ))}
           </div>
         </div>
 
@@ -375,12 +262,12 @@ export function PitchForm({
             {isGenerating ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                <span>AI Refining Terms & Minting Card...</span>
+                <span>Summoning power card...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" aria-hidden="true" />
-                <span>Make my pitch</span>
+                <span>Make my power card</span>
               </>
             )}
           </button>

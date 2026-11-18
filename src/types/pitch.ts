@@ -19,11 +19,31 @@ export type CharacterId =
   | 'data-wizard';
 
 export type CartoonStyleId =
+  | 'bold-toon'
+  | 'retro-2d'
+  | 'cozy-painted'
+  | '3d-animated'
+  | 'cute-flat'
+  | 'line-art'
   | 'anime-hero'
   | 'vinyl-toy'
   | 'comic-pop'
   | 'cyber-chibi'
   | 'pencil-sketch';
+
+export type PersonaId =
+  | 'none'
+  | 'warrior'
+  | 'samurai'
+  | 'ninja'
+  | 'viking'
+  | 'wizard'
+  | 'superhero'
+  | 'astronaut'
+  | 'pirate'
+  | 'cyber-hacker'
+  | 'rockstar'
+  | 'cowboy';
 
 export type StickerFontId = 'cartoon' | 'vinyl' | 'arcade' | 'futurist';
 
@@ -39,10 +59,14 @@ export interface PitchInput {
   aiCharacterUrl: string;
   characterPrompt: string;
   cartoonStyle: CartoonStyleId;
+  /** Costume / world the AI dresses the person in (warrior, wizard...). */
+  personaId: PersonaId;
   stickerFont: StickerFontId;
   strength1: string;
   strength2: string;
   weakness: string;
+  /** One-word hobby shown on the power card. */
+  hobby: string;
   dreamRole: string;
   tagline: string;
   motivationalLine: string;
@@ -50,6 +74,11 @@ export interface PitchInput {
 }
 
 export interface PitchResult {
+  /** Funny 2-4 word card title, e.g. "Captain Snooze Button". */
+  title: string;
+  /** Two-sentence funny introduction shown under the portrait. */
+  intro: string;
+  hobby: string;
   pitch: string;
   linkedin_headline: string;
   keywords: string[];
@@ -65,7 +94,7 @@ export interface PitchResult {
 export interface VisitorCard
   extends Omit<
       PitchInput,
-      'characterId' | 'strength1' | 'strength2' | 'weakness' | 'tagline' | 'motivationalLine'
+      'characterId' | 'strength1' | 'strength2' | 'weakness' | 'hobby' | 'tagline' | 'motivationalLine'
     >,
     PitchResult {
   id: string;
@@ -81,4 +110,4 @@ export interface SayItFeedback {
   wordCount: number;
 }
 
-export type AppTab = 'create' | 'say-it' | 'print' | 'test-plan';
+export type AppTab = 'booth' | 'create' | 'say-it' | 'print' | 'test-plan';

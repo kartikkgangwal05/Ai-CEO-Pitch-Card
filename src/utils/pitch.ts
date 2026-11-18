@@ -1,5 +1,6 @@
 import type {
   CartoonStyleId,
+  PersonaId,
   PitchInput,
   PitchResult,
   ResolvedCharacterId,
@@ -26,7 +27,14 @@ export const SPECIALISATIONS: readonly Specialisation[] = [
 
 export const TONES: readonly Tone[] = ['Confident', 'Friendly', 'Formal'];
 
-export const EXACT_SYSTEM_PROMPT = `You are an executive placement & leadership communication coach for PGDM scholars and industry guests at the #DYPAICoE launch, Pune. Input: name, specialisation, one strength, dream role, tone. Return ONLY valid JSON: pitch (a crisp 30-second "Tell me about yourself" executive answer, 70-80 words, first person; structure: sharp professional positioning, high-impact proof of one strength with a concrete metric placeholder in [brackets], future-focused commercial value in the target role; avoid generic clichés like "hardworking" or "eager to learn"), linkedin_headline (max 200 characters, using | separators), keywords (3 high-signal skills recruiters or executives search for). Confident, honest, boardroom-ready English.`;
+export const EXACT_SYSTEM_PROMPT = `You write the text for funny, printable trading-style "power cards" handed out at the #DYPAICoE launch event.
+Tone: playful, witty, warm. Roast gently so the person laughs and wants to keep the card.
+Never mock appearance, body, age, gender, religion, caste, ethnicity or anything sensitive. No profanity.
+Return ONLY valid JSON with:
+- title: a funny 2-4 word epithet like "The Spreadsheet Sorcerer" or "Captain Snooze Button", max 28 characters, never containing the person's name.
+- intro: exactly two short sentences, 14-24 words in total, third person, punchy, in the voice of a trading-card description.
+- strength, weakness, hobby: EXACTLY ONE WORD each (no spaces or hyphens), max 12 characters, capitalised, funny and specific to the facts when possible. If the user supplied a word for one of them, use that word.
+- power: an integer from 60 to 99.`;
 
 export interface TcgCardTheme {
   typeLabel: string;
@@ -118,31 +126,201 @@ const SPECIALISATION_KEYWORDS: Record<Specialisation, [string, string, string]> 
   'Executive Leadership': ['Strategic Growth', 'AI Transformation', 'Enterprise Partnerships'],
 };
 
+export const PERSONA_OPTIONS: ReadonlyArray<{
+  id: PersonaId;
+  label: string;
+  emoji: string;
+  /** Costume + setting sentence for the image model. */
+  prompt: string;
+  /** Flavour hint so the AI-written title and intro match the costume. */
+  flavor: string;
+}> = [
+  { id: 'none', label: 'As I am', emoji: '🙂', prompt: '', flavor: '' },
+  {
+    id: 'warrior',
+    label: 'Warrior',
+    emoji: '⚔️',
+    prompt:
+      'a fierce legendary battle warrior in scratched steel armour with a flowing crimson cape, holding a glowing sword, standing on a smoky battlefield at stormy sunset with embers in the air',
+    flavor: 'a legendary battle warrior (swords, war cries, glory)',
+  },
+  {
+    id: 'samurai',
+    label: 'Samurai',
+    emoji: '🏯',
+    prompt:
+      'a noble samurai in ornate lacquered armour and a crested kabuto helmet, katana at the hip, cherry blossom petals drifting past a misty mountain temple at dawn',
+    flavor: 'a disciplined samurai (honour, katana, calm focus)',
+  },
+  {
+    id: 'ninja',
+    label: 'Ninja',
+    emoji: '🥷',
+    prompt:
+      'a stealthy ninja in a dark hooded outfit with a fabric half-mask showing the eyes, shuriken in hand, crouched on a moonlit rooftop with a glowing full moon behind',
+    flavor: 'a stealthy ninja (shadows, silence, sneaking in)',
+  },
+  {
+    id: 'viking',
+    label: 'Viking',
+    emoji: '🪓',
+    prompt:
+      'a mighty Viking chieftain with a horned-style fur-trimmed helmet, braided hair and beard, a round painted shield and a battle axe, a longship on a stormy sea behind',
+    flavor: 'a mighty Viking raider (axes, longships, feasts)',
+  },
+  {
+    id: 'wizard',
+    label: 'Wizard',
+    emoji: '🧙',
+    prompt:
+      'a wise, slightly chaotic wizard in a starry purple robe and a tall pointed hat, holding a glowing crystal staff, magical sparkles swirling in an ancient candle-lit library',
+    flavor: 'a powerful wizard (spells, potions, arcane chaos)',
+  },
+  {
+    id: 'superhero',
+    label: 'Superhero',
+    emoji: '🦸',
+    prompt:
+      'a bold comic-book superhero with a dramatic cape, a bright emblem on a skin-tight suit and a confident hands-on-hips pose, a glittering city skyline at golden hour behind',
+    flavor: 'a superhero (capes, saving the day, secret identity)',
+  },
+  {
+    id: 'astronaut',
+    label: 'Astronaut',
+    emoji: '🚀',
+    prompt:
+      'a space explorer in a white astronaut suit with the helmet visor open so the face is fully visible, mission patches on the suit, a colourful nebula and a ringed planet behind',
+    flavor: 'a space explorer (rockets, zero gravity, the final frontier)',
+  },
+  {
+    id: 'pirate',
+    label: 'Pirate',
+    emoji: '🏴‍☠️',
+    prompt:
+      'a swashbuckling pirate captain with a feathered tricorn hat, a red bandana and a bold coat, a treasure map in hand, a tall ship sailing on turquoise water behind',
+    flavor: 'a swashbuckling pirate captain (treasure, seas, rum-free adventures)',
+  },
+  {
+    id: 'cyber-hacker',
+    label: 'Cyber Hacker',
+    emoji: '🤖',
+    prompt:
+      'a neon cyberpunk hacker with glowing visor-style glasses, a tech jacket with LED trim and holographic screens floating around, a rainy neon city street at night behind',
+    flavor: 'a cyberpunk hacker (code, neon, bugs and glitches)',
+  },
+  {
+    id: 'rockstar',
+    label: 'Rockstar',
+    emoji: '🎸',
+    prompt:
+      'a flamboyant rockstar in a studded leather jacket and sunglasses, holding an electric guitar, on a smoky stage with spotlights and a roaring crowd behind',
+    flavor: 'a rockstar (stage, encores, sold-out shows)',
+  },
+  {
+    id: 'cowboy',
+    label: 'Cowboy',
+    emoji: '🤠',
+    prompt:
+      'a cool wild-west cowboy in a wide-brim hat, a leather vest and a bandana, a sheriff star on the chest, a dusty desert canyon at golden sunset behind',
+    flavor: 'a wild-west cowboy (sheriffs, dust, high noon showdowns)',
+  },
+];
+
+export function getPersona(id: PersonaId | undefined) {
+  return PERSONA_OPTIONS.find((p) => p.id === id) ?? PERSONA_OPTIONS[0];
+}
+
 export const CARTOON_STYLE_OPTIONS: ReadonlyArray<{
   id: CartoonStyleId;
   label: string;
   artDirection: string;
+  /** One-line description shown in the picker. */
+  blurb?: string;
+  /** Tile colours used when no reference thumbnail is present. */
+  swatch?: [string, string];
+  /** Booth-era styles use the clean portrait prompt (no forced 3D mascot wording). */
+  modern?: boolean;
+  /** Older styles kept for saved cards, not shown in pickers. */
+  hidden?: boolean;
 }> = [
   {
+    id: 'bold-toon',
+    label: 'Bold Toon',
+    blurb: 'Thick outlines, big grin',
+    swatch: ['#F3EEE4', '#7A4A2A'],
+    modern: true,
+    artDirection:
+      'a clean modern cartoon portrait illustration with bold, smooth dark-brown outlines of even weight, crisp two-tone cel shading on skin and hair, warm natural skin tones, a big friendly toothy grin, expressive eyes with bright catch-lights, glossy highlights on glasses if worn, on a plain flat warm off-white background',
+  },
+  {
+    id: 'retro-2d',
+    label: 'Retro 2D',
+    blurb: 'Classic hand-drawn feel',
+    swatch: ['#F1E2D3', '#D9663C'],
+    modern: true,
+    artDirection:
+      'a classic hand-drawn 2D animation character portrait with simple rounded shapes, confident thick black ink outlines, large shiny cartoon eyes, flat muted warm colours with one simple shadow tone, a subtle risograph paper-grain texture, on a plain flat soft beige background',
+  },
+  {
+    id: 'cozy-painted',
+    label: 'Cozy Painted',
+    blurb: 'Warm cinematic glow',
+    swatch: ['#3B2A1E', '#F2B35B'],
+    modern: true,
+    artDirection:
+      'a semi-realistic animated-film character portrait with soft painterly rendering, large expressive eyes with long lashes, smooth glowing skin, gentle warm lamp light with soft rim light, cinematic shallow depth of field, in a cozy softly blurred room with warm bokeh behind',
+  },
+  {
+    id: '3d-animated',
+    label: '3D Animated',
+    blurb: 'Animated-movie hero',
+    swatch: ['#1E63E9', '#7FB4FF'],
+    modern: true,
+    artDirection:
+      'a high-quality 3D animated-movie character render with stylised proportions, a slightly larger head, big glossy eyes, soft subsurface-scattered skin, detailed hair strands and fabric, warm studio key light with soft fill, on a smooth saturated solid royal-blue gradient background',
+  },
+  {
+    id: 'cute-flat',
+    label: 'Cute Minimal',
+    blurb: 'Kawaii avatar, dot eyes',
+    swatch: ['#FBF1E6', '#F4C99B'],
+    modern: true,
+    artDirection:
+      'a minimal cute flat avatar illustration with simple dot eyes, a small smile, rosy circular blush cheeks, smooth thin dark-brown outlines, flat pastel colours with very little shading, and a soft peach circle behind the head on a cream background',
+  },
+  {
+    id: 'line-art',
+    label: 'Flat Line Art',
+    blurb: 'Graphic, crisp & stylish',
+    swatch: ['#C9BFB3', '#2E4A66'],
+    modern: true,
+    artDirection:
+      'a flat graphic editorial portrait illustration in a clean ligne-claire style: crisp uniform black linework, flat colour blocks with no gradients, minimal blush shading, detailed flowing hair strands drawn as lines, calm confident expression, on a plain flat muted taupe background',
+  },
+  {
     id: 'anime-hero',
+    hidden: true,
     label: 'Anime Hero',
     artDirection:
       'studio-quality modern Makoto Shinkai & Arcane-inspired cel-shaded hero portrait, 3D corporate mascot charisma, detailed fabric and hair textures, vibrant professional lighting, luminous expressive eyes, crisp refined ink linework, and volumetric cyan rim light',
   },
   {
     id: 'vinyl-toy',
+    hidden: true,
     label: '3D Vinyl Mascot',
     artDirection:
       '3D corporate mascot, vibrant 3D rendered avatar styled like a Pixar & designer vinyl collectible bust, detailed textures on tailored lapels and hair strands, vibrant professional lighting, soft 3D render with silky subsurface porcelain-matte shader and cinema three-point cyan rim light',
   },
   {
     id: 'comic-pop',
+    hidden: true,
     label: 'Comic Pop-Art',
     artDirection:
       'vibrant modern graphic novel protagonist illustration (Spider-Verse inspired), crisp bold ink contours, detailed painterly micro-textures, vibrant professional lighting, balanced bold cel color blocking, and dynamic collector-card hero presence',
   },
   {
     id: 'cyber-chibi',
+    hidden: true,
     label: 'Cyber Chibi',
     artDirection:
       'adorable high-craft stylized chibi 3D corporate mascot, detailed textures, vibrant professional lighting, soft 3D render finish with expressive oversized eyes, warm charismatic smile, and sleek minimalist holographic cyan tech accents',
@@ -178,6 +356,9 @@ export function buildCharacterGenerationPrompt(params: {
   customPrompt?: string;
   isEdit?: boolean;
   hasReferencePhoto?: boolean;
+  personaId?: PersonaId;
+  /** True when a style reference image is attached after the photo. */
+  hasStyleReference?: boolean;
 }): string {
   const custom = (params.customPrompt ?? '').trim();
   const stylePreset =
@@ -212,11 +393,43 @@ export function buildCharacterGenerationPrompt(params: {
     'Director / CXO': 'distinguished C-suite enterprise leader presence with calm strategic authority',
   };
 
-  const roleContext = params.dreamRole?.trim()
+  const persona = params.personaId && params.personaId !== 'none' ? getPersona(params.personaId) : null;
+  const personaLine = persona
+    ? `Costume & setting: dress the person as ${persona.prompt}. Keep their face, hairstyle, glasses, skin tone and expression clearly recognisable underneath the costume, and make the background rich, colourful and cinematic.`
+    : '';
+  const roleContext = persona
+    ? `styled as an epic ${persona.label.toLowerCase()} character`
+    : params.dreamRole?.trim()
     ? `styled as an inspiring ${params.dreamRole.trim()} (${visitorArchetypes[params.visitorType]})`
     : `representing ${params.specialisation} (${visitorArchetypes[params.visitorType]})`;
 
   const extraStyle = custom ? ` Additional creative direction: ${custom}.` : '';
+  const funDirection =
+    'Make it a funny, good-natured power-card caricature: a slightly oversized head, a playful confident grin or smirk, and a heroic trading-card pose. Flattering and joyful, never mean or grotesque. Keep their own clothing and accessories recognisable.';
+
+  if (stylePreset.modern) {
+    const likeness = hasPhoto
+      ? 'Likeness is the top priority: keep their exact face shape, hairstyle and hair colour, skin tone, eyebrows, eye shape, nose, glasses, beard or moustache, earrings and expression, so friends instantly recognise them.'
+      : '';
+    return [
+      hasPhoto
+        ? `Turn the person in the FIRST image into ${stylePreset.artDirection}.`
+        : `Create an original character as ${stylePreset.artDirection}.`,
+      likeness,
+      params.hasStyleReference
+        ? 'The SECOND image is a STYLE REFERENCE only: match its art style exactly (line weight, shading, colour palette, eye style, level of detail and rendering), but never copy that person, their face, hair or clothes.'
+        : '',
+      persona
+        ? personaLine
+        : 'Keep their own everyday clothing, simplified to match the style.',
+      'Mood: flattering, charming and fun with a confident smile; a collectible trading-card hero portrait.',
+      'Framing: single person, head-and-shoulders, centred and facing the camera, eyes in the upper third, shoulders visible, generous headroom, 4:3 landscape canvas with the background filling the sides.',
+      'Strictly NO text, letters, numbers, logos, signatures, watermarks, frames or borders.',
+      extraStyle,
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
 
   if (isSketch) {
     const subjectLine = hasPhoto
@@ -225,8 +438,9 @@ export function buildCharacterGenerationPrompt(params: {
 
     return [
       subjectLine,
+      funDirection,
       `Art style: ${stylePreset.artDirection}.`,
-      `Attire & textures: ${domainProps[params.specialisation]}.`,
+      persona ? personaLine : `Attire & textures: ${domainProps[params.specialisation]}.`,
       'Composition & lighting: centered head-and-shoulders studio portrait with generous headroom, crisp smooth light-tinted paper grain, vibrant studio key-to-shadow contrast, and clean electric-cyan edge accents so the portrait pops cleanly on a dark collector card.',
       'Quality rules: clean confident strokes, balanced proportions, NO distorted hands/faces, NO messy smudges, and strictly NO text, signatures, labels, or card frames.',
       extraStyle,
@@ -241,9 +455,12 @@ export function buildCharacterGenerationPrompt(params: {
 
   return [
     heroSubject,
+    funDirection,
     'CRITICAL: Do NOT produce a raw photorealistic camera photo, uncanny skin pores, or noisy compression artifacts — craft stylized studio surfaces with detailed textures, silky subsurface softness, and cohesive volumetric illumination.',
-    `Wardrobe & material details: ${domainProps[params.specialisation]}.`,
-    'Composition & lighting: centered bust-up 4:3 hero portrait with generous headroom, global illumination, vibrant professional lighting, soft 3D render depth-of-field separation against a clean deep midnight-navy (#061533) studio backdrop lit by electric neon-blue (#00D4FF) and crisp white rim lights.',
+    persona ? personaLine : `Wardrobe & material details: ${domainProps[params.specialisation]}.`,
+    persona
+      ? 'Composition & lighting: centered bust-up 4:3 hero portrait with generous headroom, cinematic global illumination, vibrant professional lighting, soft 3D render depth-of-field separation and a crisp electric-cyan (#00D4FF) rim light so the figure pops from the scene.'
+      : 'Composition & lighting: centered bust-up 4:3 hero portrait with generous headroom, global illumination, vibrant professional lighting, soft 3D render depth-of-field separation against a clean deep midnight-navy (#061533) studio backdrop lit by electric neon-blue (#00D4FF) and crisp white rim lights.',
     'Quality rules: balanced anatomy, symmetrical expressive eyes, uncluttered background, strictly NO text, words, letters, signatures, logos, or borders inside the image.',
     extraStyle,
   ]
@@ -472,22 +689,13 @@ export function estimateReadSeconds(text: string): number {
 export function validatePitchInput(input: PitchInput): Partial<Record<keyof PitchInput, string>> {
   const errors: Partial<Record<keyof PitchInput, string>> = {};
   if (!input.name.trim() || input.name.trim().length < 2) {
-    errors.name = 'Enter full name (at least 2 characters).';
+    errors.name = 'Enter a name (at least 2 characters).';
   }
   if (!SPECIALISATIONS.includes(input.specialisation)) {
-    errors.specialisation = 'Select a domain or specialisation.';
-  }
-  if (!input.strength1.trim() || input.strength1.trim().length < 3) {
-    errors.strength1 = 'Enter primary strength (at least 3 characters).';
-  }
-  if (!input.weakness.trim() || input.weakness.trim().length < 3) {
-    errors.weakness = 'Enter a growth edge / weakness (at least 3 characters).';
-  }
-  if (input.visitorType === 'PGDM Student' && (!input.dreamRole.trim() || input.dreamRole.trim().length < 3)) {
-    errors.dreamRole = 'Enter your dream role (e.g., Product Analyst).';
+    errors.specialisation = 'Select a card theme.';
   }
   if (!TONES.includes(input.tone)) {
-    errors.tone = 'Select a pitch tone.';
+    errors.tone = 'Select a tone.';
   }
   return errors;
 }
@@ -504,90 +712,95 @@ function summarizePhrase(phrase: string, maxWords = 8): string {
   return words.slice(0, maxWords).join(' ');
 }
 
+/** Reduce any text to a single clean capitalised word (power-card stats are one word only). */
+export function oneWord(value: unknown, fallback = ''): string {
+  const parts = String(value ?? '')
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .trim()
+    .split(/[\s-]+/)
+    .filter(Boolean);
+  const word = (parts[0] ?? '').slice(0, 14);
+  if (!word) return fallback;
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+function clampText(value: unknown, max: number): string {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${cut.slice(0, lastSpace > max * 0.6 ? lastSpace : max).replace(/[,;:\s]+$/, '')}…`;
+}
+
+const FUN_TITLES = [
+  'The Deadline Whisperer',
+  'Captain Snooze Button',
+  'The Snack Strategist',
+  'Lord of the Tabs',
+  'The Meeting Survivor',
+  'Wi-Fi Wizard',
+  'The Caffeine Overlord',
+  'Professor Overthink',
+];
+const PERSONA_TITLES: Partial<Record<PersonaId, readonly string[]>> = {
+  warrior: ['The Spreadsheet Warlord', 'Sir Snooze-a-Lot', 'Blade of the Deadline'],
+  samurai: ['The Chai Ronin', 'Samurai of Standup', 'Master of Mondays'],
+  ninja: ['The Silent Slacker', 'Ninja of the Inbox', 'Shadow of the Snack Drawer'],
+  viking: ['Thor-ough Professional', 'Raider of the Fridge', 'Axe of the Agenda'],
+  wizard: ['The Wi-Fi Wizard', 'Archmage of Excel', 'Sorcerer of Slack'],
+  superhero: ['Captain Coffee', 'The Deadline Avenger', 'Super Snooze'],
+  astronaut: ['Commander Caffeine', 'Lost in Space (Slides)', 'The Orbiting Overthinker'],
+  pirate: ['Captain Wi-Fi Sparrow', 'Plunderer of Pastries', 'The Buried Treasure Hunter'],
+  'cyber-hacker': ['The Bug Whisperer', 'Ctrl-Alt-Legend', 'Neon Debugger'],
+  rockstar: ['The Meeting Rockstar', 'Frontman of the Funnel', 'Encore Engineer'],
+  cowboy: ['The Sheriff of Standup', 'High Noon Hustler', 'Lasso of the Leads'],
+};
+
+const FUN_STRENGTHS = ['Hustle', 'Charm', 'Grit', 'Focus', 'Vibes', 'Wit', 'Patience', 'Rizz'];
+const FUN_WEAKNESSES = ['Snacks', 'Mondays', 'Naps', 'Memes', 'Deadlines', 'Sarcasm', 'Shopping', 'Alarms'];
+const FUN_HOBBIES = ['Napping', 'Doomscrolling', 'Karaoke', 'Chai', 'Gaming', 'Cricket', 'Baking', 'Binging'];
+
+export function buildFunText(
+  input: Pick<PitchInput, 'name' | 'currentPosition' | 'strength1' | 'weakness' | 'hobby'> & { personaId?: PersonaId },
+  salt = 0
+): Pick<PitchResult, 'title' | 'intro' | 'hobby'> & { strength1: string; weakness: string } {
+  let h = salt * 7;
+  for (const ch of `${input.name}|${input.currentPosition}`) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const pick = (list: readonly string[], offset: number) => list[(h + offset) % list.length];
+  const first = input.name.trim().split(/\s+/)[0] || 'This legend';
+  return {
+    title: pick(PERSONA_TITLES[input.personaId ?? 'none'] ?? FUN_TITLES, 0),
+    intro: `${first} enters the arena powered by pure confidence and one unfinished to-do list. Handle with care, highly contagious energy.`,
+    strength1: oneWord(input.strength1) || pick(FUN_STRENGTHS, 1),
+    weakness: oneWord(input.weakness) || pick(FUN_WEAKNESSES, 2),
+    hobby: oneWord(input.hobby) || pick(FUN_HOBBIES, 3),
+  };
+}
+
 export function buildFallbackPitch(input: PitchInput, salt = 0): PitchResult {
-  const name = input.name.trim() || 'Aarav Kulkarni';
   const spec = input.specialisation;
-  const isVip = input.visitorType !== 'PGDM Student';
-  const currentPos = input.currentPosition.trim();
-  const s1Refined = refineStrengthTerm(input.strength1, spec);
-  const s2Refined = input.strength2.trim()
-    ? refineStrengthTerm(input.strength2, spec)
-    : '';
-  const weaknessRefined = refineWeaknessTerm(input.weakness);
-  const effectiveDreamRole =
-    summarizePhrase(input.dreamRole, 5) ||
-    (isVip ? 'AI-Driven Industry Partnerships' : 'Business Leader');
-  const placeholder = SPECIALISATION_PLACEHOLDERS[spec];
-  const baseKeywords = SPECIALISATION_KEYWORDS[spec];
-  const resolvedCharacterId = selectSmartCharacter(input);
+  const fun = buildFunText(input, salt);
+  const effectiveDreamRole = summarizePhrase(input.dreamRole, 5) || 'Legend';
   const tagline =
-    input.tagline.trim() ||
-    generateDefaultTagline({ ...input, dreamRole: effectiveDreamRole }, salt);
+    input.tagline.trim() || generateDefaultTagline({ ...input, dreamRole: effectiveDreamRole }, salt);
   const motivationalLine =
     input.motivationalLine.trim() ||
     generateUniqueMotivationalLine({ ...input, dreamRole: effectiveDreamRole }, salt);
 
-  const s1Summary = summarizePhrase(s1Refined, 7);
-
-  const makeCandidates = (): string[] => {
-    if (isVip) {
-      const roleDescriptor = currentPos
-        ? `${currentPos}`
-        : input.visitorType === 'Company Owner / Founder'
-          ? 'Founder & Managing Leader'
-          : 'Senior Director & Industry Strategist';
-      return [
-        `I am ${name}, ${roleDescriptor}, joining the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune. Across my leadership work in ${spec}, I drive ${s1Summary}, most recently demonstrated through ${placeholder}. Focused on ${effectiveDreamRole}, I am partnering with emerging PGDM talent and industry leaders to translate applied AI into resilient revenue growth and disciplined operational execution.`,
-        `Good to meet you — I am ${name}, ${roleDescriptor}, visiting the #DYPAICoE launch in Pune. Within ${spec}, my core strength is ${s1Summary}, validated in ${placeholder}. Around ${effectiveDreamRole}, my priority is bridging industry execution with next-generation management leaders so teams turn emerging AI capabilities into measurable enterprise value and sustained commercial advantage.`,
-      ];
-    }
-
-    if (input.tone === 'Friendly') {
-      return [
-        `Hello, I am ${name}, a PGDM ${spec} scholar (Batch 2026–28) at Dr. D. Y. Patil B-School, Pune. Teams rely on my ${s1Summary} to turn ambiguity into structured action, most recently in ${placeholder}. I am excited to step into a ${effectiveDreamRole} role where I can combine analytical ownership with cross-functional collaboration to deliver measurable commercial growth.`,
-        `Hi, I am ${name}, pursuing my PGDM in ${spec} (Batch 2026–28) at DYP B-School, Pune. Colleagues count on my ${s1Summary}, which I recently applied in ${placeholder} to align stakeholders around clear deliverables. Stepping into a ${effectiveDreamRole} opportunity, I aim to pair sharp business judgment with collaborative execution that creates value from week one.`,
-      ];
-    }
-    if (input.tone === 'Formal') {
-      return [
-        `Good day. I am ${name}, a PGDM candidate (Batch 2026–28) specializing in ${spec} at Dr. D. Y. Patil B-School, Pune. My core capability lies in ${s1Summary}, substantiated through ${placeholder} with analytical rigor. I am targeting a ${effectiveDreamRole} position where I can contribute structured governance, stakeholder alignment, and measurable commercial value creation from day one.`,
-        `Good day. I am ${name}, a PGDM ${spec} candidate (Batch 2026–28) at DYP B-School, Pune. My primary strength is ${s1Summary}, evidenced through ${placeholder} under demanding delivery timelines. I am pursuing a ${effectiveDreamRole} appointment to apply disciplined problem-solving, executive communication, and sound operational judgment toward sustained organizational performance from day one.`,
-      ];
-    }
-    return [
-      `I am ${name}, a PGDM ${spec} candidate (Batch 2026–28) at Dr. D. Y. Patil B-School, Pune, focused on measurable business outcomes. My differentiator is ${s1Summary}, proved through ${placeholder} under tight executive timelines. Targeting a ${effectiveDreamRole} role, I am ready to turn sharp insight into cross-functional alignment, faster decision velocity, and tangible commercial impact from day one.`,
-      `I am ${name}, specializing in PGDM ${spec} (Batch 2026–28) at DYP B-School, Pune, with a focus on commercial execution. My competitive edge is ${s1Summary}, demonstrated in ${placeholder} to accelerate stakeholder clarity. Stepping into a ${effectiveDreamRole} role, I am equipped to champion data-backed decisions, elevate team execution, and compound measurable business value.`,
-    ];
-  };
-
-  const candidates = makeCandidates();
-  let pitchBody =
-    candidates.find((c) => {
-      const w = countWords(c);
-      return w >= 66 && w <= 82;
-    }) ?? candidates[0];
-
-  if (countWords(pitchBody) < 66) {
-    pitchBody = `${pitchBody} Ready to deliver measurable impact from day one.`;
-  }
-
-  const headlinePrefix = isVip
-    ? currentPos || input.visitorType
-    : `PGDM ${spec} (2026–28), DYP B-School Pune`;
-  const headline = clampHeadline(
-    `${headlinePrefix} | ${s1Refined} | ${isVip ? 'Focus' : 'Target'}: ${effectiveDreamRole}`
-  );
-
   return {
-    pitch: pitchBody,
-    linkedin_headline: headline,
-    keywords: [...baseKeywords],
-    strength1: s1Refined,
-    strength2: s2Refined,
-    weakness: weaknessRefined,
+    title: fun.title,
+    intro: fun.intro,
+    hobby: fun.hobby,
+    // pitch + headline stay populated so the Say It tab and QR text keep working.
+    pitch: fun.intro,
+    linkedin_headline: clampHeadline(fun.title),
+    keywords: [...SPECIALISATION_KEYWORDS[spec]],
+    strength1: fun.strength1,
+    strength2: '',
+    weakness: fun.weakness,
     tagline,
     motivationalLine,
-    resolvedCharacterId,
+    resolvedCharacterId: selectSmartCharacter(input),
     source: 'template',
   };
 }
@@ -623,31 +836,14 @@ export function normalizePitchResponse(raw: unknown, input: PitchInput, salt = 0
     return fallback;
   }
   const obj = raw as Record<string, unknown>;
-  const pitch = typeof obj.pitch === 'string' ? obj.pitch.trim() : '';
-  const headlineRaw = typeof obj.linkedin_headline === 'string' ? obj.linkedin_headline.trim() : '';
-  const keywordsRaw = Array.isArray(obj.keywords)
-    ? obj.keywords.filter((k): k is string => typeof k === 'string' && k.trim().length > 0).map((k) => k.trim())
-    : [];
-
-  if (!pitch || !headlineRaw || keywordsRaw.length < 1) {
+  const title = clampText(obj.title, 30);
+  const intro = clampText(obj.intro, 170);
+  if (!title || !intro) {
     return fallback;
   }
 
-  const strength1 =
-    (typeof obj.refined_strength1 === 'string' && obj.refined_strength1.trim()) || fallback.strength1;
-  const strength2 = input.strength2.trim()
-    ? (typeof obj.refined_strength2 === 'string' && obj.refined_strength2.trim()) || fallback.strength2
-    : '';
-  const weakness =
-    (typeof obj.refined_weakness === 'string' && obj.refined_weakness.trim()) || fallback.weakness;
-  const tagline =
-    input.tagline.trim() ||
-    (typeof obj.tagline === 'string' && obj.tagline.trim()) ||
-    fallback.tagline;
-  const motivationalLine =
-    input.motivationalLine.trim() ||
-    (typeof obj.motivational_line === 'string' && obj.motivational_line.trim()) ||
-    fallback.motivationalLine;
+  // Words the person typed win; the model only fills the blanks.
+  const stat = (typed: string, ai: unknown, fb: string) => oneWord(typed) || oneWord(ai, fb);
 
   let resolvedCharacterId = fallback.resolvedCharacterId;
   if (
@@ -658,18 +854,15 @@ export function normalizePitchResponse(raw: unknown, input: PitchInput, salt = 0
     resolvedCharacterId = obj.recommended_character as ResolvedCharacterId;
   }
 
-  const fallbackKeywords = SPECIALISATION_KEYWORDS[input.specialisation];
-  const mergedKeywords = [...keywordsRaw, ...fallbackKeywords].slice(0, 3);
-
   return {
-    pitch,
-    linkedin_headline: clampHeadline(headlineRaw),
-    keywords: mergedKeywords,
-    strength1,
-    strength2,
-    weakness,
-    tagline,
-    motivationalLine,
+    ...fallback,
+    title,
+    intro,
+    pitch: intro,
+    linkedin_headline: clampHeadline(title),
+    strength1: stat(input.strength1, obj.strength, fallback.strength1),
+    weakness: stat(input.weakness, obj.weakness, fallback.weakness),
+    hobby: stat(input.hobby, obj.hobby, fallback.hobby),
     resolvedCharacterId,
     source: 'ai',
   };
@@ -741,10 +934,12 @@ export const SAMPLE_INPUTS: PitchInput[] = [
     aiCharacterUrl: '',
     characterPrompt: '',
     cartoonStyle: 'anime-hero',
+    personaId: 'none',
     stickerFont: 'cartoon',
-    strength1: 'good at excel and automating SQL insight dashboards',
-    strength2: 'translating product telemetry into executive pricing briefs',
-    weakness: 'overthinking chart layouts',
+    strength1: 'Excel',
+    strength2: '',
+    weakness: 'Overthinking',
+    hobby: 'Cricket',
     dreamRole: 'Product Analyst',
     tagline: 'Turning raw telemetry into decisive product velocity.',
     motivationalLine: '',
@@ -760,10 +955,12 @@ export const SAMPLE_INPUTS: PitchInput[] = [
     aiCharacterUrl: '',
     characterPrompt: '',
     cartoonStyle: 'comic-pop',
+    personaId: 'none',
     stickerFont: 'vinyl',
-    strength1: 'creative viral campaigns and GTM positioning for youth brands',
+    strength1: 'Creativity',
     strength2: '',
-    weakness: 'talk too much when pitching bold creative concepts',
+    weakness: 'Chatter',
+    hobby: 'Karaoke',
     dreamRole: 'Brand Strategist',
     tagline: 'Where playful insight meets unforgettable brand momentum.',
     motivationalLine: '',
@@ -779,10 +976,12 @@ export const SAMPLE_INPUTS: PitchInput[] = [
     aiCharacterUrl: '',
     characterPrompt: '',
     cartoonStyle: 'vinyl-toy',
+    personaId: 'none',
     stickerFont: 'futurist',
-    strength1: 'scaling B2B fintech ventures from zero to regional leadership',
-    strength2: 'mentoring young talent on applied AI commercialization',
-    weakness: 'impatient when market experiments stall',
+    strength1: 'Hustle',
+    strength2: '',
+    weakness: 'Impatience',
+    hobby: 'Golf',
     dreamRole: 'Industry-Academia AI Ecosystem',
     tagline: 'Building resilient ventures where young talent thrives.',
     motivationalLine: '',
@@ -798,10 +997,12 @@ export const SAMPLE_INPUTS: PitchInput[] = [
     aiCharacterUrl: '',
     characterPrompt: '',
     cartoonStyle: 'cyber-chibi',
+    personaId: 'none',
     stickerFont: 'arcade',
-    strength1: 'empathetic campus hiring pipelines & people analytics',
+    strength1: 'Empathy',
     strength2: '',
-    weakness: 'bad at saying no to extra committee initiatives',
+    weakness: 'Overcommitting',
+    hobby: 'Baking',
     dreamRole: 'HR Business Partner',
     tagline: 'Aligning human harmony with measurable business scale.',
     motivationalLine: '',
@@ -820,6 +1021,7 @@ export function buildSampleVisitors(): VisitorCard[] {
     aiCharacterUrl: input.aiCharacterUrl,
     characterPrompt: input.characterPrompt,
     cartoonStyle: input.cartoonStyle,
+    personaId: input.personaId,
     stickerFont: input.stickerFont,
     dreamRole: input.dreamRole,
     tone: input.tone,

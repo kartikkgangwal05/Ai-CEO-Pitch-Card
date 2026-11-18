@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local style reference images (may be third-party art)
+public/styles/*.jpg
+public/styles/*.jpeg
+public/styles/*.png
+public/styles/*.webp

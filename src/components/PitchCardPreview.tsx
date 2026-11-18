@@ -5,6 +5,7 @@ import { getCharacterById, getMascotForSpecialisation } from '../utils/character
 import { TCG_THEMES, countWords, estimateReadSeconds, formatQrPlainText } from '../utils/pitch';
 import { CharacterIllustrationSvg } from './CharacterIllustrationSvg';
 import { PitchTextHighlight } from './PitchTextHighlight';
+import { HoloTilt } from './HoloTilt';
 import { TcgPitchCard } from './TcgPitchCard';
 
 interface PitchCardPreviewProps {
@@ -18,6 +19,7 @@ interface PitchCardPreviewProps {
   queueCount: number;
   onRetryAi?: () => void;
   onQuickPrint: () => void;
+  onShowcase?: () => void;
   onOpenSayIt: () => void;
   onOpenPrint: () => void;
   onLoadSampleCard: () => void;
@@ -34,6 +36,7 @@ export function PitchCardPreview({
   queueCount,
   onRetryAi,
   onQuickPrint,
+  onShowcase,
   onOpenSayIt,
   onOpenPrint,
   onLoadSampleCard,
@@ -197,7 +200,7 @@ export function PitchCardPreview({
               }`}
             >
               <Layers className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Front: Pitch Card</span>
+              <span>Front: Power Card</span>
             </button>
             <button
               type="button"
@@ -213,7 +216,9 @@ export function PitchCardPreview({
             </button>
           </div>
 
-          <TcgPitchCard card={card} mode="preview" side={cardSide} />
+          <HoloTilt className="max-w-[356px] mx-auto" idle={false} intensity={11}>
+            <TcgPitchCard key={`${card.id}-${cardSide}`} card={card} mode="preview" side={cardSide} />
+          </HoloTilt>
 
           {/* Single-Tap Print Bar right below the card */}
           <div className="max-w-[356px] mx-auto flex items-center gap-2">
@@ -226,6 +231,17 @@ export function PitchCardPreview({
               <Printer className="w-4 h-4" aria-hidden="true" />
               <span>1-Tap Print Card (2.5×3.5&quot;)</span>
             </button>
+            {onShowcase && (
+              <button
+                type="button"
+                data-testid="showcase-btn"
+                onClick={onShowcase}
+                className="rounded-xl bg-gradient-to-r from-fuchsia-500 via-violet-500 to-sky-500 text-white text-xs font-bold py-2.5 px-3 shadow-[0_0_20px_rgba(168,85,247,0.45)] cursor-pointer whitespace-nowrap hover:brightness-110"
+                title="Full-screen showcase reveal for the audience"
+              >
+                ✨ Showcase
+              </button>
+            )}
             <button
               type="button"
               onClick={onOpenPrint}
@@ -240,7 +256,7 @@ export function PitchCardPreview({
         <div className="xl:col-span-6 bg-[#081226]/95 border border-sky-400/30 rounded-2xl p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-400/20 pb-3">
             <span className="text-xs font-semibold text-[#00D4FF] tracking-wide uppercase">
-              30-Second Executive Pitch
+              Card Intro
             </span>
             <div className="flex items-center gap-2 text-xs font-mono-nums text-sky-100">
               <span>{wordCount} words</span>
@@ -261,19 +277,15 @@ export function PitchCardPreview({
             <p className="text-sm leading-[1.7] text-white">
               <PitchTextHighlight text={card.pitch} />
             </p>
-            <p className="mt-2.5 text-[11px] text-sky-200/80">
-              Swap the highlighted <span className="text-[#00D4FF] font-semibold">[bracket]</span>{' '}
-              detail with your verified milestone.
-            </p>
           </div>
 
           {/* LinkedIn Headline */}
           <div>
             <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="text-xs font-semibold text-white">LinkedIn Headline</span>
+              <span className="text-xs font-semibold text-white">Card Title</span>
               <div className="flex items-center gap-2.5">
                 <span className="text-[11px] font-mono-nums text-sky-200/80">
-                  {card.linkedin_headline.length}/200
+                  {card.linkedin_headline.length}/30
                 </span>
                 <button
                   type="button"

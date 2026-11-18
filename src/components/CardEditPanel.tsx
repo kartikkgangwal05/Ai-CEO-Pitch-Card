@@ -11,6 +11,7 @@ import {
   STICKER_FONT_OPTIONS,
   VISITOR_TYPES,
   generateUniqueMotivationalLine,
+  oneWord,
 } from '../utils/pitch';
 
 interface CardEditPanelProps {
@@ -28,11 +29,11 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
   const [stickerFont, setStickerFont] = useState<StickerFontId>(card.stickerFont);
   const [tagline, setTagline] = useState(card.tagline);
   const [strength1, setStrength1] = useState(card.strength1);
-  const [strength2, setStrength2] = useState(card.strength2);
+  const [title, setTitle] = useState(card.title);
+  const [intro, setIntro] = useState(card.intro);
+  const [hobby, setHobby] = useState(card.hobby);
   const [weakness, setWeakness] = useState(card.weakness);
   const [motivationalLine, setMotivationalLine] = useState(card.motivationalLine);
-  const [linkedinHeadline, setLinkedinHeadline] = useState(card.linkedin_headline);
-  const [pitch, setPitch] = useState(card.pitch);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,11 +45,11 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
     setStickerFont(card.stickerFont);
     setTagline(card.tagline);
     setStrength1(card.strength1);
-    setStrength2(card.strength2);
+    setTitle(card.title);
+    setIntro(card.intro);
+    setHobby(card.hobby);
     setWeakness(card.weakness);
     setMotivationalLine(card.motivationalLine);
-    setLinkedinHeadline(card.linkedin_headline);
-    setPitch(card.pitch);
     setErrorMsg(null);
   }, [card]);
 
@@ -65,32 +66,14 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
     setMotivationalLine(line);
   };
 
-  const handleRefreshHeadline = () => {
-    const isVip = visitorType !== 'PGDM Student';
-    const prefix = isVip
-      ? currentPosition.trim() || visitorType
-      : `PGDM ${specialisation} (2026–28), DYP B-School Pune`;
-    const roleLabel = dreamRole.trim() || (isVip ? 'AI-Driven Industry Partnerships' : 'Leadership Role');
-    const next = `${prefix} | ${strength1.trim() || card.strength1} | ${isVip ? 'Focus' : 'Target'}: ${roleLabel}`;
-    setLinkedinHeadline(next.length <= 200 ? next : `${next.slice(0, 197).trimEnd()}...`);
-  };
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (name.trim().length < 2) {
       setErrorMsg('Visitor name must be at least 2 characters.');
       return;
     }
-    if (strength1.trim().length < 3) {
-      setErrorMsg('Strength 1 must be at least 3 characters.');
-      return;
-    }
-    if (weakness.trim().length < 3) {
-      setErrorMsg('Growth Edge / Weakness must be at least 3 characters.');
-      return;
-    }
-    if (pitch.trim().length < 15) {
-      setErrorMsg('Pitch text is too short.');
+    if (title.trim().length < 2 || intro.trim().length < 5) {
+      setErrorMsg('Title and intro cannot be empty.');
       return;
     }
 
@@ -103,12 +86,15 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
       dreamRole: dreamRole.trim(),
       stickerFont,
       tagline: tagline.trim() || card.tagline,
-      strength1: strength1.trim(),
-      strength2: strength2.trim(),
-      weakness: weakness.trim(),
+      title: title.trim(),
+      intro: intro.trim(),
+      strength1: oneWord(strength1, card.strength1),
+      strength2: '',
+      weakness: oneWord(weakness, card.weakness),
+      hobby: oneWord(hobby, card.hobby),
       motivationalLine: motivationalLine.trim() || card.motivationalLine,
-      linkedin_headline: linkedinHeadline.trim() || card.linkedin_headline,
-      pitch: pitch.trim(),
+      linkedin_headline: title.trim(),
+      pitch: intro.trim(),
     });
   };
 
@@ -123,9 +109,9 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
     >
       <div className="flex items-center justify-between gap-3 border-b border-sky-400/20 pb-3">
         <div>
-          <h3 className="text-base font-bold text-white">Edit Collector Card Details</h3>
+          <h3 className="text-base font-bold text-white">Edit Power Card</h3>
           <p className="text-[11px] text-sky-200/80">
-            Updates both sides of the card, QR payload, and print sheet immediately.
+            Updates the card and print sheet immediately.
           </p>
         </div>
         <button
@@ -261,43 +247,71 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
         </div>
       </div>
 
+      <div>
+        <label htmlFor="edit-card-title" className="block text-[11px] font-medium text-sky-200 mb-1">
+          Funny Title
+        </label>
+        <input
+          id="edit-card-title"
+          type="text"
+          maxLength={30}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="edit-card-intro" className="block text-[11px] font-medium text-sky-200 mb-1">
+          Two-line Intro
+        </label>
+        <textarea
+          id="edit-card-intro"
+          rows={3}
+          maxLength={170}
+          value={intro}
+          onChange={(e) => setIntro(e.target.value)}
+          className={`${inputClass} resize-y leading-relaxed`}
+        />
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label htmlFor="edit-card-s1" className="block text-[11px] font-medium text-sky-200 mb-1">
-            Strength 1
+            Strength (one word)
           </label>
           <input
             id="edit-card-s1"
             type="text"
             value={strength1}
-            onChange={(e) => setStrength1(e.target.value)}
+            onChange={(e) => setStrength1(e.target.value.replace(/\s+/g, ''))}
             className={inputClass}
           />
         </div>
 
         <div>
-          <label htmlFor="edit-card-s2" className="block text-[11px] font-medium text-sky-200 mb-1">
-            Strength 2 (optional)
+          <label htmlFor="edit-card-hobby" className="block text-[11px] font-medium text-sky-200 mb-1">
+            Hobby (one word)
           </label>
           <input
-            id="edit-card-s2"
+            id="edit-card-hobby"
             type="text"
-            value={strength2}
-            onChange={(e) => setStrength2(e.target.value)}
-            placeholder="Leave blank for 1 strength only"
+            maxLength={14}
+            value={hobby}
+            onChange={(e) => setHobby(e.target.value.replace(/\s+/g, ''))}
             className={inputClass}
           />
         </div>
 
         <div>
           <label htmlFor="edit-card-weakness" className="block text-[11px] font-medium text-sky-200 mb-1">
-            Growth Edge (Weakness)
+            Weakness (one word)
           </label>
           <input
             id="edit-card-weakness"
             type="text"
             value={weakness}
-            onChange={(e) => setWeakness(e.target.value)}
+            onChange={(e) => setWeakness(e.target.value.replace(/\s+/g, ''))}
             className={inputClass}
           />
         </div>
@@ -336,43 +350,6 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
           value={motivationalLine}
           onChange={(e) => setMotivationalLine(e.target.value)}
           className={inputClass}
-        />
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <label htmlFor="edit-card-headline" className="text-[11px] font-medium text-sky-200">
-            LinkedIn Headline (QR)
-          </label>
-          <button
-            type="button"
-            onClick={handleRefreshHeadline}
-            className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#00D4FF] hover:text-sky-300 cursor-pointer"
-          >
-            <Sparkles className="w-3 h-3" aria-hidden="true" />
-            <span>Sync from edits</span>
-          </button>
-        </div>
-        <input
-          id="edit-card-headline"
-          type="text"
-          maxLength={200}
-          value={linkedinHeadline}
-          onChange={(e) => setLinkedinHeadline(e.target.value)}
-          className={inputClass}
-        />
-      </div>
-
-      <div>
-        <label htmlFor="edit-card-pitch" className="block text-[11px] font-medium text-sky-200 mb-1">
-          30-Second Executive Pitch (QR & Say It)
-        </label>
-        <textarea
-          id="edit-card-pitch"
-          rows={4}
-          value={pitch}
-          onChange={(e) => setPitch(e.target.value)}
-          className={`${inputClass} resize-y leading-relaxed`}
         />
       </div>
 
