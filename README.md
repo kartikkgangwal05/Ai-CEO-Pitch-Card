@@ -45,6 +45,15 @@ The real photo is cut out in the browser (MediaPipe selfie segmenter, model in `
 floating stream icons. Claude writes a wizard-style title themed on the stream, the intro and any stats left on
 "AI decides". Everything except the text runs offline. Themes live in `src/utils/streams.ts`.
 
+## Cloudflare AI portraits (optional, recommended)
+
+With `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `.env`, the final card portrait is painted by
+Cloudflare Workers AI (FLUX.2 [klein] 9B, override with `CLOUDFLARE_IMAGE_MODEL`): the visitor's photo
+(resized under 512x512) is the reference image and the prompt dresses them in a scholar's robe in their
+stream's colour, holding a glowing stream emblem, in front of a gothic castle at night. Stream previews still
+render instantly in the browser, and if Cloudflare fails the card keeps the in-browser portrait (the reveal
+shows an amber note with the reason).
+
 ## Portrait engines
 
 | `IMAGE_ENGINE` | How the portrait is made | Needs |

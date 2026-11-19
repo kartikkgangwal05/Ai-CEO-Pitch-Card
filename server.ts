@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { CLAUDE_MODEL, claudePortrait, getAnthropicClient, stylePreviewSvg } from './server/claudeArt.ts';
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { STREAMS } from './src/utils/streams.ts';
+import { cloudflareConfig, cloudflarePortrait } from './server/cloudflareArt.ts';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import {
   EXACT_SYSTEM_PROMPT,
@@ -183,6 +184,8 @@ async function startServer() {
       aiConfigured: Boolean(getGeminiClient() || getAnthropicApiKey()),
       geminiConfigured: Boolean(getGeminiClient()),
       anthropicConfigured: Boolean(getAnthropicApiKey()),
+      cloudflareConfigured: Boolean(cloudflareConfig()),
+      cloudflareModel: cloudflareConfig()?.model ?? null,
     });
   });
 
@@ -394,6 +397,31 @@ async function startServer() {
   });
 
   // Sample avatar per style for the booth tiles (Claude engine). No API call.
+  // Stream portrait from Cloudflare Workers AI (FLUX.2 klein). The browser sends a photo already
+  // resized under 512x512; on any failure the booth keeps its in-browser portrait.
+  app.post('/api/magic-portrait', async (req, res) => {
+    const { imageDataUrl, stream } = (req.body ?? {}) as { imageDataUrl?: string; stream?: Specialisation };
+    if (!cloudflareConfig()) {
+      res.status(503).json({ error: 'Cloudflare is not configured.' });
+      return;
+    }
+    const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUrl ?? '');
+    if (!match || !stream || !(stream in STREAMS)) {
+      res.status(400).json({ error: 'A photo and a valid stream are required.' });
+      return;
+    }
+    const started = Date.now();
+    try {
+      const image = await cloudflarePortrait({ mimeType: match[1], data: Buffer.from(match[2], 'base64') }, stream);
+      console.log(`[cloudflare] portrait for ${stream} in ${Date.now() - started} ms`);
+      res.json({ image });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'Cloudflare portrait failed.';
+      console.warn('[cloudflare]', reason);
+      res.status(502).json({ error: reason });
+    }
+  });
+
   app.get('/api/style-preview/:styleId.svg', (req, res) => {
     try {
       res.type('image/svg+xml').set('Cache-Control', 'public, max-age=3600');
