@@ -45,12 +45,30 @@ The real photo is cut out in the browser (MediaPipe selfie segmenter, model in `
 floating stream icons. Claude writes a wizard-style title themed on the stream, the intro and any stats left on
 "AI decides". Everything except the text runs offline. Themes live in `src/utils/streams.ts`.
 
+## Booth flow (current)
+
+Start screen (#DYPAICOE hero with sample stream cards and the live camera card) → **Name** → **Stream**
+(HR, BA, Finance, Marketing, Leadership) → **Face scan** → **Powers** (the Cloudflare portrait is painted in the
+background with a themed progress loader) → **Create my card** → reveal.
+
+Sample cards on the start screen and stream picker live in `public/samples/` (`hr`, `ba`, `finance`,
+`marketing`, `leadership` `.jpg`). Generate them once with Cloudflare (fictional students):
+
+```bash
+npx tsx scripts/generate-samples.ts
+```
+
+Until they exist the cards show a glowing stream emblem.
+
 ## Cloudflare AI portraits (optional, recommended)
 
 With `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `.env`, the final card portrait is painted by
 Cloudflare Workers AI (FLUX.2 [klein] 9B, override with `CLOUDFLARE_IMAGE_MODEL`): the visitor's photo
 (resized under 512x512) is the reference image and the prompt dresses them in a scholar's robe in their
-stream's colour, holding a glowing stream emblem, in front of a gothic castle at night. Stream previews still
+stream's colour, holding a glowing stream emblem, in front of a gothic castle at night (the client's art brief:
+half-body, straight-facing, wizard robe, white shirt, academic tie, preserve facial identity). The card frame and
+all text are drawn by the app so names are always spelled correctly. The Workers AI free tier is 10,000 neurons a
+day (about 9 portraits); an event needs the Workers Paid plan. Stream previews still
 render instantly in the browser, and if Cloudflare fails the card keeps the in-browser portrait (the reveal
 shows an amber note with the reason).
 

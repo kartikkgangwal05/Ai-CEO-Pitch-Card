@@ -177,7 +177,17 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
                 maskImage: 'linear-gradient(180deg, #000 76%, transparent 100%)',
               }}
             >
-              {portrait && <img src={portrait} alt={`${card.name} power card portrait`} className="h-full w-full object-cover" />}
+              <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 40%, ${t.glow}aa, ${t.deep} 70%)` }}>
+                <Icon path={ICON_PATHS[t.icons[0]]} color={g0} size="6em" />
+              </div>
+              {portrait && (
+                <img
+                  src={portrait}
+                  alt={`${card.name} power card portrait`}
+                  className="relative h-full w-full object-cover object-top"
+                  onError={(e) => (e.currentTarget.style.visibility = 'hidden')}
+                />
+              )}
             </div>
 
             {/* Name (sits over the robe) */}

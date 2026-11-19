@@ -1,5 +1,5 @@
-import { useState, type Dispatch, type SetStateAction } from 'react';
-import { motion } from 'motion/react';
+import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { CartoonStyleId, PersonaId, Specialisation, VisitorCard } from '../types/pitch';
 import { STREAMS } from '../utils/streams';
 import { getPersona } from '../utils/pitch';
@@ -46,6 +46,8 @@ interface PowersStepProps {
   previewUrl: string;
   /** When set, preview the ornate stream card. */
   stream?: Specialisation;
+  /** Replaces the preview card (e.g. the AI conjuring loader while the portrait is painted). */
+  previewSlot?: ReactNode;
 }
 
 /** Live preview card shown while picking stats: the chosen look's sample art + the chosen words. */
@@ -92,7 +94,7 @@ function buildPreviewCard(
 }
 
 /** Booth step: pick (or let AI pick) the one-word Strength / Weakness / Hobby, with a live card preview. */
-export function PowersStep({ name, styleId, personaId, powers, onChange, previewUrl, stream }: PowersStepProps) {
+export function PowersStep({ name, styleId, personaId, powers, onChange, previewUrl, stream, previewSlot }: PowersStepProps) {
   const [customFor, setCustomFor] = useState<keyof Powers | null>(null);
   const [customText, setCustomText] = useState('');
 
@@ -121,15 +123,30 @@ export function PowersStep({ name, styleId, personaId, powers, onChange, preview
     <div className="flex w-full flex-col items-center gap-8 lg:flex-row lg:items-center lg:justify-center lg:gap-12">
       {/* Live card preview */}
       <motion.div
-        className="w-[230px] shrink-0 sm:w-[260px]"
+        className="w-[260px] shrink-0 sm:w-[280px]"
         initial={{ opacity: 0, x: -30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ type: 'spring', stiffness: 120, damping: 18 }}
       >
-        <HoloTilt intensity={10} idle>
-          <TcgPitchCard card={buildPreviewCard(name, styleId, personaId, powers, previewUrl, stream)} mode="preview" side="front" />
-        </HoloTilt>
-        <p className="mt-3 text-center font-mono-nums text-[10px] uppercase tracking-[0.3em] text-sky-400/70">Live preview</p>
+        <AnimatePresence mode="wait">
+          {previewSlot ? (
+            <motion.div key="slot" className="flex min-h-[360px] items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
+              {previewSlot}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="card"
+              initial={{ opacity: 0, scale: 0.85, rotateY: -25 }}
+              animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+              transition={{ type: 'spring', stiffness: 120, damping: 16 }}
+            >
+              <HoloTilt intensity={10} idle>
+                <TcgPitchCard card={buildPreviewCard(name, styleId, personaId, powers, previewUrl, stream)} mode="preview" side="front" />
+              </HoloTilt>
+              <p className="mt-3 text-center font-mono-nums text-[10px] uppercase tracking-[0.3em] text-sky-400/70">Live preview</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       <div className="w-full max-w-2xl space-y-5">

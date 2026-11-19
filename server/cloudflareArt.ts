@@ -13,38 +13,69 @@ export function cloudflareConfig() {
 }
 
 /** Per-stream wardrobe colour and the glowing object the student holds (original, generic fantasy). */
-const STREAM_LOOK: Record<Specialisation, { colour: string; prop: string }> = {
-  HR: { colour: 'warm gold and amber', prop: 'a glowing golden orb with small people icons floating above the open palm' },
+/** Per-stream colour, held emblem and background symbols (the client's brief, kept original). */
+const STREAM_LOOK: Record<Specialisation, { colour: string; prop: string; symbols: string }> = {
+  HR: {
+    colour: 'warm gold and amber',
+    prop: 'holding a glowing golden hologram of three people icons floating above the open palm',
+    symbols: 'faint glowing silhouettes of people and teams',
+  },
   'Business Analytics': {
     colour: 'electric sapphire blue',
-    prop: 'a floating holographic dashboard with glowing bar charts and a pie chart above the open palm',
+    prop: 'holding a floating holographic dashboard with glowing bar charts and a pie chart above the open palm',
+    symbols: 'faint glowing charts, graphs and data streams',
   },
-  Finance: { colour: 'deep crimson red', prop: 'a stack of glowing gold coins with a rising arrow of light above the open palm' },
-  Marketing: { colour: 'emerald green', prop: 'a glowing megaphone with floating like, play and heart icons above the open palm' },
-  'Executive Leadership': { colour: 'royal purple', prop: 'a glowing crown of light and a rising star above the open palm' },
+  Finance: {
+    colour: 'deep crimson red',
+    prop: 'holding a stack of glowing gold coins with a rising golden arrow above the open palm',
+    symbols: 'faint glowing stock-market candlestick charts',
+  },
+  Marketing: {
+    colour: 'emerald green',
+    prop: 'holding a glowing golden megaphone above the open palm',
+    symbols: 'faint glowing social media icons such as play buttons, likes, hearts and targets',
+  },
+  'Executive Leadership': {
+    colour: 'royal purple',
+    prop: 'holding a glowing golden crown of light above the open palm',
+    symbols: 'faint glowing stars and rising arrows',
+  },
 };
 
-export function buildPortraitPrompt(stream: Specialisation): string {
+/**
+ * The client's art brief (premium cinematic wizard-school collectible card art), applied to the
+ * portrait only: the card frame and all text are drawn by the app so names are always spelled right.
+ */
+function artBrief(stream: Specialisation, subject: string): string {
   const look = STREAM_LOOK[stream] ?? STREAM_LOOK['Business Analytics'];
   return [
-    'Epic fantasy trading-card portrait of the exact person in image 0, waist-up, facing the viewer, confident friendly expression.',
-    "Keep the person's face, hairstyle, hair colour, skin tone, eyes, glasses, beard or moustache exactly the same and clearly recognisable.",
-    `They wear an elegant black scholar's robe with ${look.colour} lining and a ${look.colour} stole, a crisp white collared shirt and a plain dark tie with a small gold pin.`,
-    `One hand is raised holding ${look.prop}.`,
-    `Swirling ribbons of ${look.colour} magical light and sparks wrap around them.`,
-    'Background: a dark gothic castle with lit windows under a dramatic stormy night sky, drifting mist, cinematic rim lighting, rich colour grading.',
-    'Highly detailed digital painting, sharp focus on the face, no text, no letters, no logos, no watermark, no frame or border.',
+    `Premium cinematic fantasy collectible trading-card artwork, inspired by magical wizard-school fantasy and enchanted academies, magical realism.`,
+    `A half-body portrait of ${subject} in the exact centre, looking directly at the camera, straight-facing pose, confident and friendly.`,
+    `They wear an elegant black wizard robe with ${look.colour} lining and hood, a crisp white shirt and an academic tie in ${look.colour} and gold.`,
+    `${look.prop}.`,
+    `Dramatic ${look.colour} magical lighting, glowing particles, swirling energy ribbons and ${look.symbols} surrounding the character.`,
+    'Background: a dark, mysterious wizard academy castle with lit windows under a stormy sky.',
+    'Premium realistic 3D digital artwork, cinematic lighting, highly detailed, sharp focus on the face.',
+    'No text, no letters, no numbers, no logos, no watermark, no card border or frame.',
   ].join(' ');
 }
 
-/**
- * Generate the portrait. `photo` must already be smaller than 512x512 (the model's input limit).
- * Returns a data URL. Throws with a readable message on failure.
- */
+export function buildPortraitPrompt(stream: Specialisation): string {
+  return [
+    artBrief(stream, 'the exact person in image 0'),
+    "Preserve the person's actual facial identity, facial structure, hairstyle, skin tone, glasses, beard and natural appearance exactly.",
+  ].join(' ');
+}
+
+/** Same brief with a fictional student, for the start screen's sample cards (no reference photo). */
+export function buildSamplePrompt(stream: Specialisation, who: string): string {
+  return artBrief(stream, who);
+}
+
 /** Shorter fallback prompt, used once if Cloudflare's safety filter flags the first attempt. */
 export function buildSimplePrompt(stream: Specialisation): string {
   const look = STREAM_LOOK[stream] ?? STREAM_LOOK['Business Analytics'];
-  return `The person in image 0 wearing a black scholar's robe with a ${look.colour} stole, magical ${look.colour} light around them, gothic castle at night behind, digital painting.`;
+  return `The person in image 0, half-body, looking at the camera, wearing a black wizard robe with ${look.colour} lining, white shirt and tie, magical ${look.colour} light around them, castle at night behind, realistic 3D digital art.`;
 }
 
 export async function cloudflarePortrait(photo: { mimeType: string; data: Buffer }, stream: Specialisation): Promise<string> {
@@ -60,15 +91,15 @@ export async function cloudflarePortrait(photo: { mimeType: string; data: Buffer
   }
 }
 
-async function generate(photo: { mimeType: string; data: Buffer }, prompt: string): Promise<string> {
+export async function generate(photo: { mimeType: string; data: Buffer } | null, prompt: string): Promise<string> {
   const cfg = cloudflareConfig();
   if (!cfg) throw new Error('Cloudflare is not configured (CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN).');
 
   const form = new FormData();
   form.append('prompt', prompt);
-  form.append('input_image_0', new Blob([new Uint8Array(photo.data)], { type: photo.mimeType }), 'photo.jpg');
+  if (photo) form.append('input_image_0', new Blob([new Uint8Array(photo.data)], { type: photo.mimeType }), 'photo.jpg');
   form.append('width', '768');
-  form.append('height', '768');
+  form.append('height', '960');
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60_000);

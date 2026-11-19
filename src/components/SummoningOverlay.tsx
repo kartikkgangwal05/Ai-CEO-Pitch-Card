@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { playCharge } from '../utils/sfx';
+import type { Specialisation } from '../types/pitch';
+import { ConjuringLoader } from './ConjuringLoader';
 
 const MESSAGES = [
   'Locking biometric signature…',
@@ -17,10 +19,12 @@ const MESSAGES = [
 
 interface SummoningOverlayProps {
   photoUrl?: string;
+  /** Stream cards: show the themed conjuring loader instead of the generic one. */
+  stream?: Specialisation;
 }
 
 /** Full-screen "summoning" loader shown while Gemini / Claude work. */
-export function SummoningOverlay({ photoUrl }: SummoningOverlayProps) {
+export function SummoningOverlay({ photoUrl, stream }: SummoningOverlayProps) {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -28,6 +32,24 @@ export function SummoningOverlay({ photoUrl }: SummoningOverlayProps) {
     const timer = window.setInterval(() => setIndex((i) => (i + 1) % MESSAGES.length), 1700);
     return () => window.clearInterval(timer);
   }, []);
+
+  if (stream && photoUrl) {
+    return createPortal(
+      <motion.div
+        className="no-print fixed inset-0 z-[110] flex flex-col items-center justify-center overflow-hidden bg-[#020612]/96"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, transition: { duration: 0.35 } }}
+      >
+        <div aria-hidden="true" className="booth-aura absolute inset-0" />
+        <p className="relative mb-8 font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">Forging your power card</p>
+        <div className="relative">
+          <ConjuringLoader photo={photoUrl} stream={stream} size="full" />
+        </div>
+      </motion.div>,
+      document.body
+    );
+  }
 
   return createPortal(
     <motion.div
