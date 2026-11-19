@@ -7,11 +7,6 @@ coverage/
 .env*
 !.env.example
 
-# Local style reference images (may be third-party art)
-public/styles/*.jpg
-public/styles/*.jpeg
-public/styles/*.png
-public/styles/*.webp
 
 # MediaPipe wasm runtime (copied from node_modules on npm install)
 public/mediapipe/

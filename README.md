@@ -73,7 +73,6 @@ Styles: Bold Toon, Retro 2D, Cozy Painted, 3D Animated, Cute Minimal, Flat Line 
 Put one example image per style in `public/styles/<style-id>.jpg` (ids: `bold-toon`, `retro-2d`,
 `cozy-painted`, `3d-animated`, `cute-flat`, `line-art`). The booth shows them as thumbnails and the
 server sends them to Gemini as a **style reference** next to the photo, so results match the look closely.
-These images are git-ignored (they may be third-party art).
 
 ## Personas (AI photo textures)
 
