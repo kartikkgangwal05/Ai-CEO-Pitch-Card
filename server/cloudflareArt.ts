@@ -3,7 +3,24 @@
 // REST: POST https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/{MODEL} (multipart).
 import type { Specialisation } from '../src/types/pitch.ts';
 
-const DEFAULT_MODEL = '@cf/black-forest-labs/flux-2-klein-9b';
+// klein 4B costs ~26 neurons per 512x512 tile (~0.001 USD/portrait); 9B is ~13x more. Override via env.
+const DEFAULT_MODEL = '@cf/black-forest-labs/flux-2-klein-4b';
+
+/** Set when Cloudflare says the daily free allocation is used up; cleared at the next UTC midnight. */
+let quotaBlockedUntil = 0;
+
+function nextUtcMidnight() {
+  const d = new Date();
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+}
+
+/** 'off' = no keys, 'quota' = daily allowance used up (until reset), 'ok' = ready. */
+export function cloudflareStatus(): 'off' | 'quota' | 'ok' {
+  if (!cloudflareConfig()) return 'off';
+  return Date.now() < quotaBlockedUntil ? 'quota' : 'ok';
+}
+
+export const QUOTA_MESSAGE = "Cloudflare's daily free AI allowance is used up (resets 00:00 UTC / 5:30 AM IST, or upgrade to Workers Paid)";
 
 export function cloudflareConfig() {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
@@ -124,7 +141,11 @@ export async function generate(photo: { mimeType: string; data: Buffer } | null,
     if (!res.ok || body.success === false) {
       const msg = body.errors?.map((e) => e.message).filter(Boolean).join('; ') || `HTTP ${res.status}`;
       if (res.status === 401 || res.status === 403) throw new Error(`Cloudflare rejected the API token (${msg}).`);
-      if (res.status === 429) throw new Error(`Cloudflare rate limit or daily Workers AI allowance reached (${msg}).`);
+      if (/daily free allocation|neurons/i.test(msg)) {
+        quotaBlockedUntil = nextUtcMidnight();
+        throw new Error(QUOTA_MESSAGE);
+      }
+      if (res.status === 429) throw new Error(`Cloudflare rate limit reached, try again in a moment (${msg}).`);
       if (/flagged/i.test(msg)) throw new Error('Cloudflare safety filter flagged this photo; try a clearer, front-facing photo.');
       throw new Error(`Cloudflare image generation failed (${msg}).`);
     }

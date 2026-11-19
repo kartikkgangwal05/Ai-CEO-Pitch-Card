@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { CLAUDE_MODEL, claudePortrait, getAnthropicClient, stylePreviewSvg } from './server/claudeArt.ts';
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { STREAMS } from './src/utils/streams.ts';
-import { cloudflareConfig, cloudflarePortrait } from './server/cloudflareArt.ts';
+import { QUOTA_MESSAGE, cloudflareConfig, cloudflarePortrait, cloudflareStatus } from './server/cloudflareArt.ts';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import {
   EXACT_SYSTEM_PROMPT,
@@ -185,6 +185,7 @@ async function startServer() {
       geminiConfigured: Boolean(getGeminiClient()),
       anthropicConfigured: Boolean(getAnthropicApiKey()),
       cloudflareConfigured: Boolean(cloudflareConfig()),
+      cloudflareStatus: cloudflareStatus(),
       cloudflareModel: cloudflareConfig()?.model ?? null,
     });
   });
@@ -403,6 +404,10 @@ async function startServer() {
     const { imageDataUrl, stream } = (req.body ?? {}) as { imageDataUrl?: string; stream?: Specialisation };
     if (!cloudflareConfig()) {
       res.status(503).json({ error: 'Cloudflare is not configured.' });
+      return;
+    }
+    if (cloudflareStatus() === 'quota') {
+      res.status(429).json({ error: QUOTA_MESSAGE });
       return;
     }
     const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUrl ?? '');

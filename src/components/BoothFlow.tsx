@@ -100,7 +100,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [localPortrait, setLocalPortrait] = useState<string | null>(null);
-  const [ai, setAi] = useState<{ status: 'idle' | 'working' | 'done'; image: string | null }>({ status: 'idle', image: null });
+  const [ai, setAi] = useState<{ status: 'idle' | 'working' | 'done'; image: string | null; error?: string | null }>({ status: 'idle', image: null });
   const aiJob = useRef<Promise<PortraitResult> | null>(null);
   const [missingSamples, setMissingSamples] = useState<Set<Specialisation>>(new Set());
   const [stream, setStream] = useState<Specialisation>('Business Analytics');
@@ -109,6 +109,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   const [powers, setPowers] = useState<Powers>({ strength: '', weakness: '', hobby: '' });
   const [creating, setCreating] = useState(false);
   const [aiOnline, setAiOnline] = useState<boolean | null>(null);
+  const [cfStatus, setCfStatus] = useState<'off' | 'quota' | 'ok' | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Load the person-cutout model while people read the start screen.
@@ -119,7 +120,10 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   useEffect(() => {
     fetch('/api/health')
       .then((r) => r.json())
-      .then((h) => setAiOnline(Boolean(h.anthropicConfigured || h.geminiConfigured)))
+      .then((h) => {
+        setAiOnline(Boolean(h.anthropicConfigured || h.geminiConfigured));
+        setCfStatus(h.cloudflareStatus ?? (h.cloudflareConfigured ? 'ok' : 'off'));
+      })
       .catch(() => setAiOnline(false));
   }, []);
 
@@ -147,7 +151,8 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
     const job = requestStreamPortrait(photo, stream);
     aiJob.current = job;
     void job.then((r) => {
-      if (!cancelled) setAi({ status: 'done', image: r.image });
+      if (!cancelled) setAi({ status: 'done', image: r.image, error: r.error });
+      if (r.error && /allowance/i.test(r.error)) setCfStatus('quota');
     });
     void renderMagicPortrait(photo, stream, 1000)
       .then((url) => !cancelled && setLocalPortrait(url))
@@ -261,6 +266,14 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
               }`}
             >
               {aiOnline ? '● AI online' : '○ AI offline'}
+            </span>
+          )}
+          {cfStatus && cfStatus !== 'ok' && (
+            <span
+              title={cfStatus === 'quota' ? 'Cloudflare daily free allowance used up. Resets 00:00 UTC (5:30 AM IST), or upgrade to Workers Paid.' : 'Add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to .env'}
+              className="hidden rounded-full border border-amber-400/50 px-3 py-1.5 text-amber-300 sm:inline"
+            >
+              {cfStatus === 'quota' ? '⚠ AI portraits paused · daily limit' : '○ AI portraits off'}
             </span>
           )}
           <button
@@ -428,6 +441,11 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                   ) : undefined
                 }
               />
+              {ai.status === 'done' && !ai.image && ai.error && (
+                <p className="mt-6 max-w-2xl rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2 text-center text-xs text-amber-200">
+                  AI portrait unavailable: {ai.error}. Your card uses the in-browser magic portrait instead.
+                </p>
+              )}
               <div className="mt-8 flex items-center gap-4">
                 <button type="button" onClick={() => go('scan')} className="booth-ghost-btn">
                   <Camera className="h-4 w-4" aria-hidden="true" /> Retake
