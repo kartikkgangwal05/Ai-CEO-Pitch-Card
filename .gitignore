@@ -10,3 +10,4 @@ coverage/
 
 # MediaPipe wasm runtime (copied from node_modules on npm install)
 public/mediapipe/
+.vercel

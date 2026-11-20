@@ -161,6 +161,7 @@ async function getImageModelCandidates(ai: GoogleGenAI): Promise<string[]> {
 function explainGeminiError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (/API key not valid|API_KEY_INVALID|PERMISSION_DENIED|401|403/i.test(msg)) return 'Gemini rejected the API key.';
+  if (/spending cap/i.test(msg)) return 'Gemini monthly spending cap reached: raise it at ai.studio/spend. (quota)';
   if (/quota|RESOURCE_EXHAUSTED|429|billing/i.test(msg)) return 'Gemini image quota used up or billing not enabled for this key.';
   if (/timed out/i.test(msg)) return 'Gemini took too long to draw the portrait.';
   if (/not found|404|not supported/i.test(msg)) return 'No Gemini image model available for this key.';
@@ -220,7 +221,8 @@ async function geminiPortrait(ai: GoogleGenAI, photo: { mimeType: string; data: 
   throw lastErr;
 }
 
-async function startServer() {
+/** All API routes, no static serving or listening, so it runs locally and as a Vercel function. */
+export async function createApp() {
   const app = express();
   app.use(express.json({ limit: '15mb' }));
 
@@ -669,6 +671,12 @@ async function startServer() {
     }
   });
 
+  return app;
+}
+
+async function startServer() {
+  const app = await createApp();
+
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
@@ -689,4 +697,5 @@ async function startServer() {
   });
 }
 
-startServer();
+// On Vercel the app is served by api/index.ts instead.
+if (!process.env.VERCEL) void startServer();
