@@ -12,11 +12,11 @@ interface ConjuringLoaderProps {
   size?: 'card' | 'full';
 }
 
-/** Expected Cloudflare time; the bar eases towards 95% over this and completes when `done`. */
+/** Expected AI painting time; the bar eases towards 95% over this and completes when `done`. */
 const EXPECTED_MS = 12000;
 
 /**
- * Themed progress while Cloudflare paints the portrait: the visitor's photo inside rotating gold rune
+ * Themed progress while the AI paints the portrait: the visitor's photo inside rotating gold rune
  * rings with a scanning beam, stage-by-stage status in the stream's colour and an eased progress bar.
  */
 export function ConjuringLoader({ photo, stream, done = false, size = 'card' }: ConjuringLoaderProps) {
@@ -126,7 +126,7 @@ export function ConjuringLoader({ photo, stream, done = false, size = 'card' }: 
         />
       </div>
       <p className="mt-2 font-mono-nums text-[11px] uppercase tracking-[0.3em] text-sky-300/70">
-        {done ? 'Painted by Cloudflare AI' : `Painting with AI · ${pct}%`}
+        {done ? 'Portrait painted by AI' : `Painting with AI · ${pct}%`}
       </p>
     </div>
   );

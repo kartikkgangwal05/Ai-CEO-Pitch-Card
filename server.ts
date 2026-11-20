@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { CLAUDE_MODEL, claudePortrait, getAnthropicClient, stylePreviewSvg } from './server/claudeArt.ts';
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { STREAMS } from './src/utils/streams.ts';
-import { QUOTA_MESSAGE, cloudflareConfig, cloudflarePortrait, cloudflareStatus } from './server/cloudflareArt.ts';
+import { QUOTA_MESSAGE, buildGeminiPrompt, cloudflareConfig, cloudflarePortrait, cloudflareStatus } from './server/cloudflareArt.ts';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import {
   EXACT_SYSTEM_PROMPT,
@@ -170,6 +170,56 @@ function explainGeminiError(err: unknown): string {
 const isModelMissing = (err: unknown) =>
   /not found|404|not supported|unsupported|does not support|INVALID_ARGUMENT.*model/i.test(err instanceof Error ? err.message : String(err));
 
+/** Set when every Gemini image model refused on quota; the booth header shows it, cleared after 15 min or on success. */
+let geminiQuotaUntil = 0;
+function geminiStatus(): 'off' | 'quota' | 'ok' {
+  if (!getGeminiClient()) return 'off';
+  return Date.now() < geminiQuotaUntil ? 'quota' : 'ok';
+}
+
+/** Gemini repaints the visitor's photo with the stream card brief; tries the image models this key can use. */
+async function geminiPortrait(ai: GoogleGenAI, photo: { mimeType: string; data: Buffer }, stream: Specialisation) {
+  const listed = await getImageModelCandidates(ai);
+  const candidates = workingImageModel ? [workingImageModel, ...listed.filter((m) => m !== workingImageModel)] : listed;
+  const parts = [
+    { inlineData: { mimeType: photo.mimeType, data: photo.data.toString('base64') } },
+    { text: buildGeminiPrompt(stream) },
+  ];
+  let lastErr: unknown = new Error('No Gemini image model available for this key.');
+  const started = Date.now();
+  for (const model of candidates) {
+    if (Date.now() - started > 55_000) break;
+    try {
+      const response = await Promise.race([
+        ai.models.generateContent({
+          model,
+          contents: { parts },
+          config: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '4:5' } },
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Gemini timed out')), 60_000)),
+      ]);
+      for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+        if (part.inlineData?.data) {
+          workingImageModel = model;
+          geminiQuotaUntil = 0;
+          return { image: `data:${part.inlineData.mimeType ?? 'image/png'};base64,${part.inlineData.data}`, model };
+        }
+      }
+      lastErr = new Error('Gemini returned no image (it may have declined this photo).');
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[gemini] ${model} failed:`, msg.slice(0, 200));
+      // Quota is per model, so a quota error moves on to the next model; a bad key or timeout does not.
+      if (!isModelMissing(err) && !/quota|RESOURCE_EXHAUSTED|429/i.test(msg)) break;
+    }
+  }
+  if (/quota|RESOURCE_EXHAUSTED|429/i.test(lastErr instanceof Error ? lastErr.message : String(lastErr))) {
+    geminiQuotaUntil = Date.now() + 15 * 60_000;
+  }
+  throw lastErr;
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '15mb' }));
@@ -186,6 +236,7 @@ async function startServer() {
       anthropicConfigured: Boolean(getAnthropicApiKey()),
       cloudflareConfigured: Boolean(cloudflareConfig()),
       cloudflareStatus: cloudflareStatus(),
+      geminiStatus: geminiStatus(),
       cloudflareModel: cloudflareConfig()?.model ?? null,
     });
   });
@@ -402,12 +453,10 @@ async function startServer() {
   // resized under 512x512; on any failure the booth keeps its in-browser portrait.
   app.post('/api/magic-portrait', async (req, res) => {
     const { imageDataUrl, stream } = (req.body ?? {}) as { imageDataUrl?: string; stream?: Specialisation };
-    if (!cloudflareConfig()) {
-      res.status(503).json({ error: 'Cloudflare is not configured.' });
-      return;
-    }
-    if (cloudflareStatus() === 'quota') {
-      res.status(429).json({ error: QUOTA_MESSAGE });
+    const gemini = getGeminiClient();
+    const cfState = cloudflareStatus();
+    if (cfState === 'off' && !gemini) {
+      res.status(503).json({ error: 'No AI portrait engine is configured.' });
       return;
     }
     const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUrl ?? '');
@@ -415,16 +464,42 @@ async function startServer() {
       res.status(400).json({ error: 'A photo and a valid stream are required.' });
       return;
     }
-    const started = Date.now();
-    try {
-      const image = await cloudflarePortrait({ mimeType: match[1], data: Buffer.from(match[2], 'base64') }, stream);
-      console.log(`[cloudflare] portrait for ${stream} in ${Date.now() - started} ms`);
-      res.json({ image });
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : 'Cloudflare portrait failed.';
-      console.warn('[cloudflare]', reason);
-      res.status(502).json({ error: reason });
+    const photo = { mimeType: match[1], data: Buffer.from(match[2], 'base64') };
+    const reasons: string[] = [];
+
+    // 1) Cloudflare first (cheap, fast), unless its daily allowance is known to be used up.
+    if (cfState === 'ok') {
+      const started = Date.now();
+      try {
+        const image = await cloudflarePortrait(photo, stream);
+        console.log(`[cloudflare] portrait for ${stream} in ${Date.now() - started} ms`);
+        res.json({ image, provider: 'cloudflare' });
+        return;
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'Cloudflare portrait failed.';
+        console.warn('[cloudflare]', reason, gemini ? '→ trying Gemini' : '');
+        reasons.push(reason);
+      }
+    } else if (cfState === 'quota') {
+      reasons.push(QUOTA_MESSAGE);
     }
+
+    // 2) Gemini as the backup painter, same art brief.
+    if (gemini) {
+      const started = Date.now();
+      try {
+        const { image, model } = await geminiPortrait(gemini, photo, stream);
+        console.log(`[gemini] portrait for ${stream} with ${model} in ${Date.now() - started} ms`);
+        res.json({ image, provider: 'gemini' });
+        return;
+      } catch (err) {
+        const reason = explainGeminiError(err);
+        console.warn('[gemini]', reason);
+        reasons.push(`Gemini: ${reason}`);
+      }
+    }
+
+    res.status(cfState === 'quota' && !gemini ? 429 : 502).json({ error: reasons.join(' · ') });
   });
 
   app.get('/api/style-preview/:styleId.svg', (req, res) => {

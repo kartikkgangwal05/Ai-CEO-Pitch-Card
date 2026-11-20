@@ -5,6 +5,8 @@ export interface PortraitResult {
   image: string | null;
   /** Reason shown on the reveal when Cloudflare was configured but failed. */
   error: string | null;
+  /** Which AI painted it. */
+  provider?: 'cloudflare' | 'gemini';
 }
 
 /** Centre-crop a photo to a square JPEG of `size` px (FLUX.2 klein inputs must be under 512x512). */
@@ -24,7 +26,7 @@ export function squareJpeg(src: string, size: number): Promise<string> {
   });
 }
 
-/** Ask the server for the Cloudflare Workers AI stream portrait. Never throws. */
+/** Ask the server for the AI stream portrait (Cloudflare first, Gemini as backup). Never throws. */
 export async function requestStreamPortrait(photo: string, stream: Specialisation): Promise<PortraitResult> {
   try {
     const small = await squareJpeg(photo, 504);
@@ -34,9 +36,9 @@ export async function requestStreamPortrait(photo: string, stream: Specialisatio
       body: JSON.stringify({ imageDataUrl: small, stream }),
     });
     if (res.status === 503) return { image: null, error: null };
-    const payload = (await res.json().catch(() => ({}))) as { image?: string; error?: string };
+    const payload = (await res.json().catch(() => ({}))) as { image?: string; error?: string; provider?: 'cloudflare' | 'gemini' };
     if (!res.ok || !payload.image) return { image: null, error: payload.error ?? `HTTP ${res.status}` };
-    return { image: payload.image, error: null };
+    return { image: payload.image, error: null, provider: payload.provider };
   } catch (err) {
     return { image: null, error: err instanceof Error ? err.message : 'network error' };
   }

@@ -84,6 +84,16 @@ export function buildPortraitPrompt(stream: Specialisation): string {
   ].join(' ');
 }
 
+/** The same client brief for Gemini, which receives the visitor's photo as an attached image. */
+export function buildGeminiPrompt(stream: Specialisation): string {
+  return [
+    'Using the attached photo as the identity reference, create a new image.',
+    artBrief(stream, 'the exact person in the attached photo'),
+    "Preserve the person's actual facial identity, facial structure, hairstyle, skin tone, glasses, beard and natural appearance exactly; they must be instantly recognisable.",
+    'Portrait orientation.',
+  ].join(' ');
+}
+
 /** Same brief with a fictional student, for the start screen's sample cards (no reference photo). */
 export function buildSamplePrompt(stream: Specialisation, who: string): string {
   return artBrief(stream, who);

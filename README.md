@@ -69,8 +69,13 @@ stream's colour, holding a glowing stream emblem, in front of a gothic castle at
 half-body, straight-facing, wizard robe, white shirt, academic tie, preserve facial identity). The card frame and
 all text are drawn by the app so names are always spelled correctly. The Workers AI free tier is 10,000 neurons a
 day (about 9 portraits); an event needs the Workers Paid plan. Stream previews still
-render instantly in the browser, and if Cloudflare fails the card keeps the in-browser portrait (the reveal
-shows an amber note with the reason).
+render instantly in the browser.
+
+**Gemini backup:** if `GEMINI_API_KEY` is also set, the booth switches to Gemini automatically whenever Cloudflare
+fails or its daily allowance runs out (same art brief and stream look; the server tries each Gemini image model the
+key can use). Gemini image models need **billing enabled** on the key's Google project: free-tier keys have an image
+quota of 0. The booth header shows "AI portraits · Gemini backup" when Gemini is covering, and the Powers step says
+which AI painted the portrait. If both fail, the card keeps the in-browser portrait and an amber note gives the reasons.
 
 ## Portrait engines
 
