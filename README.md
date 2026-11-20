@@ -60,6 +60,17 @@ npx tsx scripts/generate-samples.ts
 
 Until they exist the cards show a glowing stream emblem.
 
+## Campus backdrop
+
+Every portrait (and the sample cards) is painted in front of the real Dr. D. Y. Patil B-School PGDM campus at night:
+the photo in `server/assets/campus.jpg` is sent to Gemini as a second reference image next to the visitor's photo.
+To use a different photo, replace that file and regenerate the embedded copy (needed for the Vercel bundle):
+
+```bash
+python3 -c "import base64;b=base64.b64encode(open('server/assets/campus.jpg','rb').read()).decode();open('server/campusImage.ts','w').write('export const CAMPUS_JPEG_BASE64 =\\n  \\''+b+'\\';\\n')"
+npm run build:api
+```
+
 ## Gemini AI portraits
 
 With `GEMINI_API_KEY` in `.env` (billing enabled on the key's Google project; free-tier keys have an image quota of 0),

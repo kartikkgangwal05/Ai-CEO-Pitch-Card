@@ -160,68 +160,90 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
             <OrnateFrame id={frameId} gold={t.frame} />
 
             {/* Header */}
-            <header className="relative z-10 text-center" style={{ marginTop: '0.05em' }}>
+            <header className="relative z-10 text-center" style={{ marginTop: '0.15em' }}>
               <span style={{ ...display, ...goldText, fontSize: '1.15em', fontWeight: 900, letterSpacing: '0.05em', lineHeight: 1 }}>
                 #DYPAICOE
               </span>
             </header>
 
-            {/* Portrait */}
+            {/* Full-bleed portrait behind everything (like the reference cards), emblem if there is no image */}
+            <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 38%, ${t.glow}aa, ${t.deep} 70%)` }}>
+              <Icon path={ICON_PATHS[t.icons[0]]} color={g0} size="7em" />
+            </div>
+            {portrait && (
+              <img
+                src={portrait}
+                alt={`${card.name} power card portrait`}
+                className="absolute inset-0 h-full w-full object-cover"
+                style={{ objectPosition: '50% 18%' }}
+                onError={(e) => (e.currentTarget.style.visibility = 'hidden')}
+              />
+            )}
+            {/* shade: top for the header, bottom for the plaque and text */}
             <div
-              className="relative min-h-0 flex-1 overflow-hidden"
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
               style={{
-                borderRadius: '0.35em 0.35em 0.2em 0.2em',
-                boxShadow: `inset 0 0 0 0.06em ${g1}aa`,
-                background: deep,
-                WebkitMaskImage: 'linear-gradient(180deg, #000 76%, transparent 100%)',
-                maskImage: 'linear-gradient(180deg, #000 76%, transparent 100%)',
+                background: `linear-gradient(180deg, ${ink}cc 0%, transparent 13%, transparent 52%, ${ink}b3 66%, ${ink}f2 80%, ${ink} 100%)`,
               }}
-            >
-              <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 40%, ${t.glow}aa, ${t.deep} 70%)` }}>
-                <Icon path={ICON_PATHS[t.icons[0]]} color={g0} size="6em" />
-              </div>
-              {portrait && (
-                <img
-                  src={portrait}
-                  alt={`${card.name} power card portrait`}
-                  className="relative h-full w-full object-cover object-top"
-                  onError={(e) => (e.currentTarget.style.visibility = 'hidden')}
-                />
-              )}
-            </div>
+            />
 
-            {/* Name (sits over the robe) */}
-            <div className="relative z-10 text-center" style={{ marginTop: '-2.2em' }}>
-              <p
-                data-testid="card-name"
-                className="truncate uppercase"
-                style={{ ...display, ...goldText, fontSize: firstName.length > 9 ? '1.5em' : '1.9em', fontWeight: 900, lineHeight: 1.05, letterSpacing: '0.02em' }}
-              >
-                {firstName}
-              </p>
-            </div>
+            <div className="flex-1" />
 
-            {/* Title on a pointed plaque */}
-            <div className="relative z-10 mx-auto" style={{ width: '100%', padding: '0.08em', background: g1, clipPath: plate }}>
-              <div style={{ background: `linear-gradient(180deg, ${ink}, ${deep} 60%, ${ink})`, clipPath: plate, padding: '0.4em 1.35em' }}>
-                <h3
-                  data-testid="card-title"
-                  className="truncate text-center uppercase"
-                  style={{ ...serif, color: g0, fontSize: titleSize, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1.15 }}
+            {/* Name and title on one ornate plaque */}
+            <div className="relative z-10" style={{ margin: '0 0.5em' }}>
+              <svg viewBox="0 0 40 10" aria-hidden="true" className="absolute left-1/2 -translate-x-1/2" style={{ top: '-0.62em', width: '2.4em', height: '0.6em' }}>
+                <path d="M0 9 Q12 9 17 4 L20 0 L23 4 Q28 9 40 9" fill="none" stroke={g1} strokeWidth="1.4" />
+                <path d="M20 2 l2.5 3.5 l-2.5 3.5 l-2.5 -3.5 z" fill={g0} />
+              </svg>
+              <div style={{ padding: '0.09em', borderRadius: '0.35em', background: `linear-gradient(90deg, ${g2}, ${g0}, ${g1}, ${g0}, ${g2})` }}>
+                <div
+                  className="text-center"
+                  style={{
+                    borderRadius: '0.28em',
+                    background: `linear-gradient(180deg, ${ink}f0, ${deep}f0 55%, ${ink}f0)`,
+                    boxShadow: `inset 0 0 0 0.05em ${g2}, inset 0 0 0.8em ${t.glow}55`,
+                    padding: '0.3em 0.7em 0.38em',
+                  }}
                 >
-                  {card.title}
-                </h3>
+                  <p
+                    data-testid="card-name"
+                    className="truncate uppercase"
+                    style={{ ...display, ...goldText, fontSize: firstName.length > 9 ? '1.35em' : '1.65em', fontWeight: 900, lineHeight: 1.05, letterSpacing: '0.03em' }}
+                  >
+                    {firstName}
+                  </p>
+                  <div aria-hidden="true" className="mx-auto" style={{ height: '0.06em', width: '70%', margin: '0.18em auto 0.16em', background: `linear-gradient(90deg, transparent, ${g1}, transparent)` }} />
+                  <h3
+                    data-testid="card-title"
+                    className="truncate uppercase"
+                    style={{ ...serif, ...goldText, fontSize: titleSize, fontWeight: 700, letterSpacing: '0.04em', lineHeight: 1.15 }}
+                  >
+                    {card.title}
+                  </h3>
+                </div>
               </div>
             </div>
 
-            <p
-              className="relative z-10 flex items-center justify-center uppercase"
-              style={{ ...serif, color: t.id === 'Business Analytics' ? g0 : g1, fontSize: '0.62em', fontWeight: 700, letterSpacing: '0.22em', gap: '0.6em' }}
+            {/* Strength • Weakness • Hobby on one line */}
+            <dl
+              data-testid="card-stats"
+              className="relative z-10 flex items-center justify-center text-center"
+              style={{ ...serif, gap: '0.45em', marginTop: '0.45em', padding: '0 1.2em' }}
             >
-              <span style={{ height: '0.08em', width: '2.4em', background: `linear-gradient(90deg, transparent, ${g1})` }} />
-              {t.short}
-              <span style={{ height: '0.08em', width: '2.4em', background: `linear-gradient(270deg, transparent, ${g1})` }} />
-            </p>
+              {stats.map((word, i) => (
+                <div key={i} className="flex min-w-0 items-center" style={{ gap: '0.45em' }}>
+                  {i > 0 && <span aria-hidden="true" style={{ color: g1, fontSize: '0.7em' }}>•</span>}
+                  <dt className="sr-only">{['Strength', 'Weakness', 'Hobby'][i]}</dt>
+                  <dd
+                    className="truncate"
+                    style={{ color: t.light, fontSize: stats.some((w) => (w ?? '').length > 9) ? '0.6em' : '0.7em', fontWeight: 700, letterSpacing: '0.02em', textShadow: '0 0.05em 0.15em #000' }}
+                  >
+                    {word}
+                  </dd>
+                </div>
+              ))}
+            </dl>
 
             {/* Intro (two-line clamp) */}
             <p
@@ -230,10 +252,13 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
               style={{
                 ...book,
                 color: t.light,
-                opacity: 0.95,
-                fontSize: '0.6em',
+                opacity: 0.9,
+                fontSize: '0.56em',
                 lineHeight: 1.18,
-                padding: '0 0.6em',
+                padding: '0 1.4em',
+                marginTop: '0.25em',
+                // keep the text above the bottom corner scrollwork (about 4em tall); the seal sits between the corners
+                marginBottom: '5.4em',
                 fontWeight: 600,
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
@@ -244,35 +269,8 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
               {card.intro}
             </p>
 
-            {/* Stats */}
-            <dl data-testid="card-stats" className="relative z-10 grid grid-cols-3 text-center" style={{ padding: '0 2.2em', marginBottom: '1.9em' }}>
-              {stats.map((word, i) => (
-                <div key={i} className="flex min-w-0 flex-col items-center" style={{ gap: '0.1em', borderLeft: i ? `0.07em solid ${g1}cc` : undefined }}>
-                  <dt className="sr-only">{['Strength', 'Weakness', 'Hobby'][i]}</dt>
-                  <Icon path={ICON_PATHS[t.icons[i]]} color={g0} />
-                  <dd
-                    className="w-full"
-                    style={{
-                      ...serif,
-                      color: g0,
-                      fontSize: (word ?? '').length > 10 ? '0.56em' : '0.7em',
-                      fontWeight: 700,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      lineHeight: 1.05,
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {word}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
             {/* Bottom seal (original round academy seal with the stream icon) */}
-            <div className="absolute left-1/2 z-20 -translate-x-1/2" style={{ bottom: '0.6em', width: '1.5em', height: '1.5em' }}>
+            <div className="absolute left-1/2 z-20 -translate-x-1/2" style={{ bottom: '0.9em', width: '2em', height: '2em' }}>
               <svg viewBox="0 0 40 40" className="h-full w-full" aria-hidden="true">
                 <defs>
                   <linearGradient id={`crest-${frameId}`} x1="0" y1="0" x2="1" y2="1">

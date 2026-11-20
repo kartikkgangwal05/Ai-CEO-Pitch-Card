@@ -8,6 +8,7 @@ import { CLAUDE_MODEL, claudePortrait, getAnthropicClient, stylePreviewSvg } fro
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { STREAMS } from './src/utils/streams.ts';
 import { buildGeminiPrompt } from './server/portraitArt.ts';
+import { CAMPUS_JPEG_BASE64 } from './server/campusImage.ts';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import {
   EXACT_SYSTEM_PROMPT,
@@ -184,6 +185,7 @@ async function geminiPortrait(ai: GoogleGenAI, photo: { mimeType: string; data: 
   const candidates = workingImageModel ? [workingImageModel, ...listed.filter((m) => m !== workingImageModel)] : listed;
   const parts = [
     { inlineData: { mimeType: photo.mimeType, data: photo.data.toString('base64') } },
+    { inlineData: { mimeType: 'image/jpeg', data: CAMPUS_JPEG_BASE64 } },
     { text: buildGeminiPrompt(stream) },
   ];
   let lastErr: unknown = new Error('No Gemini image model available for this key.');
