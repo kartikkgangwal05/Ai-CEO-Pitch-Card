@@ -309,7 +309,7 @@ export default function App() {
     setRevealCard(newCard);
   };
 
-  /** `portraitPromise` (optional) replaces the cartoon request, e.g. the Cloudflare stream portrait. */
+  /** `portraitPromise` (optional) replaces the cartoon request, e.g. the Gemini stream portrait. */
   const generateWithAi = async (sourceInput: PitchInput, portraitPromise?: Promise<string | null>) => {
     const startMs = sessionStartMs ?? Date.now();
     const requestStart = Date.now();

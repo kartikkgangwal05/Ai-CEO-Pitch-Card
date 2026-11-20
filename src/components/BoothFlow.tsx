@@ -17,7 +17,7 @@ export interface BoothResult {
   photoDataUrl: string;
   /** Best portrait available right now (AI if finished, else the in-browser stream portrait). */
   portraitUrl: string;
-  /** The Cloudflare AI portrait job (already settled if it finished during the Powers step). */
+  /** The Gemini AI portrait job (already settled if it finished during the Powers step). */
   aiPortrait: Promise<PortraitResult>;
   cartoonStyle: CartoonStyleId;
   personaId: PersonaId;
@@ -100,7 +100,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [localPortrait, setLocalPortrait] = useState<string | null>(null);
-  const [ai, setAi] = useState<{ status: 'idle' | 'working' | 'done'; image: string | null; error?: string | null; provider?: 'cloudflare' | 'gemini' }>({ status: 'idle', image: null });
+  const [ai, setAi] = useState<{ status: 'idle' | 'working' | 'done'; image: string | null; error?: string | null; provider?: 'gemini' }>({ status: 'idle', image: null });
   const aiJob = useRef<Promise<PortraitResult> | null>(null);
   const [missingSamples, setMissingSamples] = useState<Set<Specialisation>>(new Set());
   const [stream, setStream] = useState<Specialisation>('Business Analytics');
@@ -109,8 +109,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   const [powers, setPowers] = useState<Powers>({ strength: '', weakness: '', hobby: '' });
   const [creating, setCreating] = useState(false);
   const [aiOnline, setAiOnline] = useState<boolean | null>(null);
-  const [cfStatus, setCfStatus] = useState<'off' | 'quota' | 'ok' | null>(null);
-  const [geminiReady, setGeminiReady] = useState(false);
+  const [geminiState, setGeminiState] = useState<'off' | 'quota' | 'ok' | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Load the person-cutout model while people read the start screen.
@@ -123,8 +122,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
       .then((r) => r.json())
       .then((h) => {
         setAiOnline(Boolean(h.anthropicConfigured || h.geminiConfigured));
-        setCfStatus(h.cloudflareStatus ?? (h.cloudflareConfigured ? 'ok' : 'off'));
-        setGeminiReady((h.geminiStatus ?? (h.geminiConfigured ? 'ok' : 'off')) === 'ok');
+        setGeminiState(h.geminiStatus ?? (h.geminiConfigured ? 'ok' : 'off'));
       })
       .catch(() => setAiOnline(false));
   }, []);
@@ -143,7 +141,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
     }
   }, [step]);
 
-  // As soon as the photo is taken: start the Cloudflare AI portrait for the chosen stream, and render
+  // As soon as the photo is taken: start the Gemini AI portrait for the chosen stream, and render
   // the in-browser stream portrait as an instant fallback. People pick powers while the AI paints.
   useEffect(() => {
     if (!photo) return;
@@ -154,13 +152,11 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
     aiJob.current = job;
     void job.then((r) => {
       if (!cancelled) setAi({ status: 'done', image: r.image, error: r.error, provider: r.provider });
-      if (r.error || r.provider === 'gemini') {
-        // Gemini only paints when Cloudflare was skipped or failed; refresh the real status.
-        fetch('/api/health').then((x) => x.json()).then((h) => {
-          if (h.cloudflareStatus) setCfStatus(h.cloudflareStatus);
-          setGeminiReady(h.geminiStatus === 'ok');
-        }).catch(() => {});
-      }
+      // Refresh the header pill: a quota refusal flips Gemini to "paused", a success clears it.
+      fetch('/api/health')
+        .then((x) => x.json())
+        .then((h) => setGeminiState(h.geminiStatus ?? null))
+        .catch(() => {});
     });
     void renderMagicPortrait(photo, stream, 1000)
       .then((url) => !cancelled && setLocalPortrait(url))
@@ -276,22 +272,13 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
               {aiOnline ? '● AI online' : '○ AI offline'}
             </span>
           )}
-          {cfStatus && cfStatus !== 'ok' && (
-            geminiReady ? (
-              <span
-                title={cfStatus === 'quota' ? 'Cloudflare daily free allowance used up, so Gemini paints the portraits until it resets (00:00 UTC / 5:30 AM IST).' : 'Cloudflare is not configured, so Gemini paints the portraits.'}
-                className="hidden rounded-full border border-sky-400/50 px-3 py-1.5 text-sky-300 sm:inline"
-              >
-                ● AI portraits · Gemini backup
-              </span>
-            ) : (
-              <span
-                title={cfStatus === 'quota' ? 'Cloudflare daily free allowance used up. Resets 00:00 UTC (5:30 AM IST), or upgrade to Workers Paid. A GEMINI_API_KEY with billing enabled works as a backup.' : 'Add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (or GEMINI_API_KEY) to .env'}
-                className="hidden rounded-full border border-amber-400/50 px-3 py-1.5 text-amber-300 sm:inline"
-              >
-                {cfStatus === 'quota' ? '⚠ AI portraits paused · daily limit' : '○ AI portraits off'}
-              </span>
-            )
+          {geminiState && geminiState !== 'ok' && (
+            <span
+              title={geminiState === 'quota' ? 'Gemini image quota used up or billing is not enabled for this key. Portraits resume automatically once it works again.' : 'Add GEMINI_API_KEY (with billing enabled) to .env'}
+              className="hidden rounded-full border border-amber-400/50 px-3 py-1.5 text-amber-300 sm:inline"
+            >
+              {geminiState === 'quota' ? '⚠ AI portraits paused · Gemini quota' : '○ AI portraits off'}
+            </span>
           )}
           <button
             type="button"
@@ -460,7 +447,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
               />
               {ai.status === 'done' && ai.image && ai.provider && (
                 <p className="mt-4 font-mono-nums text-[10px] uppercase tracking-[0.3em] text-amber-200/70">
-                  ✦ Portrait painted by {ai.provider === 'gemini' ? 'Google Gemini' : 'Cloudflare Workers AI'}
+                  ✦ Portrait painted by Google Gemini
                 </p>
               )}
               {ai.status === 'done' && !ai.image && ai.error && (

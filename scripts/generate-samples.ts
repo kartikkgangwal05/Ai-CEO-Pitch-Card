@@ -1,8 +1,9 @@
-// One-off: paints the start screen's sample cards with Cloudflare Workers AI (fictional students).
+// One-off: paints the start screen's sample cards with Gemini (fictional students).
 // Run: npx tsx scripts/generate-samples.ts
 import 'dotenv/config';
 import { writeFileSync } from 'node:fs';
-import { buildSamplePrompt, generate } from '../server/cloudflareArt.ts';
+import { GoogleGenAI } from '@google/genai';
+import { buildSamplePrompt } from '../server/portraitArt.ts';
 import type { Specialisation } from '../src/types/pitch.ts';
 
 const SAMPLES: [Specialisation, string, string][] = [
@@ -13,10 +14,24 @@ const SAMPLES: [Specialisation, string, string][] = [
   ['Executive Leadership', 'leadership', 'a confident Indian business leader in their forties with short greying hair'],
 ];
 
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+const MODEL = process.env.GEMINI_IMAGE_MODEL?.trim() || 'gemini-3.1-flash-image';
+
+async function generate(prompt: string): Promise<string> {
+  const res = await ai.models.generateContent({
+    model: MODEL,
+    contents: { parts: [{ text: prompt }] },
+    config: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '4:5' } },
+  });
+  const part = res.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+  if (!part?.inlineData?.data) throw new Error('Gemini returned no image');
+  return `data:${part.inlineData.mimeType ?? 'image/png'};base64,${part.inlineData.data}`;
+}
+
 for (const [stream, file, who] of SAMPLES) {
   const t = Date.now();
   try {
-    const url = await generate(null, buildSamplePrompt(stream, who));
+    const url = await generate(buildSamplePrompt(stream, who));
     writeFileSync(`public/samples/${file}.jpg`, Buffer.from(url.split(',')[1], 'base64'));
     console.log(`${file}: ok in ${Date.now() - t} ms`);
   } catch (err) {

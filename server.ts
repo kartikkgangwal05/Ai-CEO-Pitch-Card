@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { CLAUDE_MODEL, claudePortrait, getAnthropicClient, stylePreviewSvg } from './server/claudeArt.ts';
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { STREAMS } from './src/utils/streams.ts';
-import { QUOTA_MESSAGE, buildGeminiPrompt, cloudflareConfig, cloudflarePortrait, cloudflareStatus } from './server/cloudflareArt.ts';
+import { buildGeminiPrompt } from './server/portraitArt.ts';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import {
   EXACT_SYSTEM_PROMPT,
@@ -234,10 +234,7 @@ async function startServer() {
       aiConfigured: Boolean(getGeminiClient() || getAnthropicApiKey()),
       geminiConfigured: Boolean(getGeminiClient()),
       anthropicConfigured: Boolean(getAnthropicApiKey()),
-      cloudflareConfigured: Boolean(cloudflareConfig()),
-      cloudflareStatus: cloudflareStatus(),
       geminiStatus: geminiStatus(),
-      cloudflareModel: cloudflareConfig()?.model ?? null,
     });
   });
 
@@ -449,14 +446,13 @@ async function startServer() {
   });
 
   // Sample avatar per style for the booth tiles (Claude engine). No API call.
-  // Stream portrait from Cloudflare Workers AI (FLUX.2 klein). The browser sends a photo already
+  // Stream portrait painted by Gemini from the visitor's photo. The browser sends a photo already
   // resized under 512x512; on any failure the booth keeps its in-browser portrait.
   app.post('/api/magic-portrait', async (req, res) => {
     const { imageDataUrl, stream } = (req.body ?? {}) as { imageDataUrl?: string; stream?: Specialisation };
     const gemini = getGeminiClient();
-    const cfState = cloudflareStatus();
-    if (cfState === 'off' && !gemini) {
-      res.status(503).json({ error: 'No AI portrait engine is configured.' });
+    if (!gemini) {
+      res.status(503).json({ error: 'GEMINI_API_KEY is not set, so AI portraits are off.' });
       return;
     }
     const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUrl ?? '');
@@ -465,27 +461,8 @@ async function startServer() {
       return;
     }
     const photo = { mimeType: match[1], data: Buffer.from(match[2], 'base64') };
-    const reasons: string[] = [];
-
-    // 1) Cloudflare first (cheap, fast), unless its daily allowance is known to be used up.
-    if (cfState === 'ok') {
-      const started = Date.now();
-      try {
-        const image = await cloudflarePortrait(photo, stream);
-        console.log(`[cloudflare] portrait for ${stream} in ${Date.now() - started} ms`);
-        res.json({ image, provider: 'cloudflare' });
-        return;
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : 'Cloudflare portrait failed.';
-        console.warn('[cloudflare]', reason, gemini ? '→ trying Gemini' : '');
-        reasons.push(reason);
-      }
-    } else if (cfState === 'quota') {
-      reasons.push(QUOTA_MESSAGE);
-    }
-
-    // 2) Gemini as the backup painter, same art brief.
-    if (gemini) {
+    // Gemini paints the portrait from the visitor's photo with the stream art brief.
+    {
       const started = Date.now();
       try {
         const { image, model } = await geminiPortrait(gemini, photo, stream);
@@ -495,11 +472,9 @@ async function startServer() {
       } catch (err) {
         const reason = explainGeminiError(err);
         console.warn('[gemini]', reason);
-        reasons.push(`Gemini: ${reason}`);
+        res.status(reason.includes('quota') ? 429 : 502).json({ error: reason });
       }
     }
-
-    res.status(cfState === 'quota' && !gemini ? 429 : 502).json({ error: reasons.join(' · ') });
   });
 
   app.get('/api/style-preview/:styleId.svg', (req, res) => {
