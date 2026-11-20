@@ -68,10 +68,11 @@ function artBrief(stream: Specialisation, subject: string): string {
   return [
     `Premium cinematic fantasy collectible trading-card artwork, inspired by magical wizard-school fantasy and enchanted academies, magical realism.`,
     `A half-body portrait of ${subject} in the exact centre, looking directly at the camera, straight-facing pose, confident and friendly.`,
-    `They wear an elegant black wizard robe with ${look.colour} lining and hood, a crisp white shirt and an academic tie in ${look.colour} and gold.`,
+    `They wear an elegant black wizard robe with ${look.colour} lining and hood, a crisp white shirt and a plain solid ${look.colour} academic tie with no stripes.`,
     `${look.prop}.`,
     `Dramatic ${look.colour} magical lighting, glowing particles, swirling energy ribbons and ${look.symbols} surrounding the character.`,
-    'Background: a dark, mysterious wizard academy castle with lit windows under a stormy sky.',
+    'Background: a grand dark-stone Indian-gothic university palace with a tall central clock tower, wide stone arches and glowing windows under a stormy sky, clearly different from any famous wizard-school castle.',
+    'Original design only: no striped house ties, no house crests, no lightning-bolt scar, and nothing that copies any existing film, book or franchise.',
     'Premium realistic 3D digital artwork, cinematic lighting, highly detailed, sharp focus on the face.',
     'No text, no letters, no numbers, no logos, no watermark, no card border or frame.',
   ].join(' ');
