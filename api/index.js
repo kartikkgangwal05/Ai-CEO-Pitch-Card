@@ -1,6 +1,5 @@
 // server.ts
 import "dotenv/config";
-import Anthropic2 from "@anthropic-ai/sdk";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
@@ -58,7 +57,6 @@ var CLAUDE_STYLES = {
 };
 
 // server/claudeArt.ts
-var CLAUDE_MODEL = "claude-opus-5-5";
 var COLOR_KEYS = /* @__PURE__ */ new Set([
   "skinColor",
   "baseColor",
@@ -88,23 +86,6 @@ function kitFields(style) {
   }
   return fields;
 }
-function outputSchema(fields) {
-  const properties = {};
-  for (const f of fields) {
-    if (f.kind === "part") properties[f.key] = { type: "string", enum: f.options };
-    if (f.kind === "toggle") properties[`${f.key}_visible`] = { type: "boolean" };
-    if (f.kind === "color") properties[f.key] = { type: "string", description: "6-digit hex colour without #" };
-  }
-  return { type: "object", properties, required: Object.keys(properties), additionalProperties: false };
-}
-var SYSTEM_PROMPT = `You are a caricature artist building a cartoon avatar of a real person from an avatar kit.
-You get a photo and must pick one value for every kit slot so the avatar is instantly recognisable as that person.
-Priorities, in order: hair (length, shape, parting, texture, colour), skin tone, glasses (only if they wear them),
-facial hair (only if they have it), headwear (only if worn: hijab, turban, cap), earrings (only if visible).
-Expression: always friendly and confident, a smile.
-Slots ending in "_visible": true only when that item is clearly present in the photo.
-Colour slots: a 6-digit hex sampled from the photo (skin from the cheek, hair from the hair), no "#".
-Clothing colour: match their top. If no person is visible, build a cheerful generic avatar.`;
 var hex = (v, fallback) => {
   const s = String(v ?? "").replace("#", "").trim().toLowerCase();
   return /^[0-9a-f]{6}$/.test(s) ? s : fallback;
@@ -127,9 +108,6 @@ function composeCardArt(avatarSvg, bg) {
 <rect width="400" height="300" fill="url(#bg)"/>${rays}
 <circle cx="200" cy="150" r="118" fill="#ffffff" fill-opacity="0.16"/>
 ${inner}</svg>`;
-}
-function toDataUrl(svg) {
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 function renderAvatar(styleId, seed, picks, partial = false) {
   const { meta, style } = styleFor(styleId);
@@ -161,45 +139,6 @@ var PREVIEW_PICKS = {
 function stylePreviewSvg(styleId, seed = "Power Card") {
   const { meta } = styleFor(styleId);
   return renderAvatar(styleId, seed, PREVIEW_PICKS[meta.dicebear], true);
-}
-var client = null;
-function getAnthropicClient() {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key || key === "MY_ANTHROPIC_API_KEY") return null;
-  client ??= new Anthropic({ apiKey: key, timeout: 45e3, maxRetries: 1 });
-  return client;
-}
-async function claudePortrait(params) {
-  const anthropic = getAnthropicClient();
-  if (!anthropic) throw new Error("ANTHROPIC_API_KEY is not set.");
-  const { style } = styleFor(params.styleId);
-  const fields = kitFields(style);
-  const response = await anthropic.beta.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: 4e3,
-    output_config: { effort: "low", format: { type: "json_schema", schema: outputSchema(fields) } },
-    // Server-side fallback: if the request is declined, it re-runs on a fallback model automatically.
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: params.mimeType, data: params.imageBase64 }
-          },
-          { type: "text", text: "Build this person's avatar from the kit." }
-        ]
-      }
-    ]
-  });
-  if (response.stop_reason === "refusal") throw new Error("Claude declined to describe this photo.");
-  const text = response.content.find((b) => b.type === "text");
-  if (!text || text.type !== "text") throw new Error("Claude returned no avatar description.");
-  const picks = JSON.parse(text.text);
-  return { imageUrl: toDataUrl(renderAvatar(params.styleId, params.seed, picks)), picks };
 }
 
 // src/utils/streams.ts
@@ -875,50 +814,9 @@ function getGeminiClient() {
     }
   });
 }
-function getAnthropicApiKey() {
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey || apiKey === "MY_ANTHROPIC_API_KEY") {
-    return null;
-  }
-  return apiKey;
-}
-var CARD_TEXT_SCHEMA = {
-  type: "object",
-  properties: {
-    title: { type: "string", description: "Funny 2-4 word epithet, max 28 chars, no name." },
-    intro: { type: "string", description: "Exactly two short punchy sentences, 14-24 words total." },
-    strength: { type: "string", description: "ONE word." },
-    weakness: { type: "string", description: "ONE word." },
-    hobby: { type: "string", description: "ONE word." },
-    power: { type: "integer", description: "60-99" },
-    recommended_character: {
-      type: "string",
-      enum: ["gadget-cat", "mischief-maverick", "harmony-ace", "strategy-prodigy", "visionary-captain", "data-wizard"]
-    }
-  },
-  required: ["title", "intro", "strength", "weakness", "hobby", "power", "recommended_character"],
-  additionalProperties: false
-};
-async function callAnthropicJson(params) {
-  const anthropic = getAnthropicClient();
-  if (!anthropic) throw new Error("ANTHROPIC_API_KEY is not set.");
-  const response = await anthropic.beta.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: 4e3,
-    output_config: { effort: "low", format: { type: "json_schema", schema: CARD_TEXT_SCHEMA } },
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    system: params.system,
-    messages: [{ role: "user", content: params.userPrompt }]
-  });
-  if (response.stop_reason === "refusal") throw new Error("Claude declined to write this card.");
-  const text = response.content.find((b) => b.type === "text");
-  if (!text || text.type !== "text") throw new Error("Claude returned no card text.");
-  return JSON.parse(text.text);
-}
 function getImageEngine() {
   const forced = process.env.IMAGE_ENGINE?.trim().toLowerCase();
-  if (forced === "claude" || forced === "gemini" || forced === "filter") return forced;
+  if (forced === "gemini" || forced === "filter") return forced;
   return "filter";
 }
 function loadStyleReference(styleId) {
@@ -1032,10 +930,9 @@ async function createApp() {
     res.json({
       ok: true,
       imageEngine: getImageEngine(),
-      imageModel: getImageEngine() === "filter" ? "browser photo filter" : getImageEngine() === "claude" ? CLAUDE_MODEL : workingImageModel ?? imageModels[0] ?? null,
-      aiConfigured: Boolean(getGeminiClient() || getAnthropicApiKey()),
+      imageModel: getImageEngine() === "filter" ? "browser photo filter" : workingImageModel ?? imageModels[0] ?? null,
+      aiConfigured: Boolean(getGeminiClient()),
       geminiConfigured: Boolean(getGeminiClient()),
-      anthropicConfigured: Boolean(getAnthropicApiKey()),
       geminiStatus: geminiStatus()
     });
   });
@@ -1068,10 +965,9 @@ async function createApp() {
       return;
     }
     const ai = getGeminiClient();
-    const anthropicKey = getAnthropicApiKey();
-    if (!ai && !anthropicKey) {
+    if (!ai) {
       res.status(503).json({
-        error: "Configure GEMINI_API_KEY or ANTHROPIC_API_KEY in Settings > Secrets."
+        error: "Configure GEMINI_API_KEY in Settings > Secrets."
       });
       return;
     }
@@ -1086,25 +982,6 @@ async function createApp() {
         typed("Weakness", input.weakness),
         typed("Hobby", input.hobby)
       ].join("\n");
-      if (anthropicKey) {
-        try {
-          const parsed2 = await callAnthropicJson({
-            system: EXACT_SYSTEM_PROMPT,
-            userPrompt
-          });
-          const normalized2 = normalizePitchResponse(parsed2, input);
-          res.json(normalized2);
-          return;
-        } catch (anthropicErr) {
-          if (!ai) {
-            throw anthropicErr;
-          }
-          console.warn(
-            "Anthropic pitch call failed, falling back to Gemini:",
-            anthropicErr instanceof Error ? anthropicErr.message : anthropicErr
-          );
-        }
-      }
       const response = await Promise.race([
         ai.models.generateContent({
           model: "gemini-4-hydrogen",
@@ -1132,7 +1009,7 @@ async function createApp() {
           }
         }),
         new Promise(
-          (_, reject) => setTimeout(() => reject(new Error("Gemini API timed out after 10s.")), 1e4)
+          (_, reject) => setTimeout(() => reject(new Error("Gemini API timed out after 20s.")), 2e4)
         )
       ]);
       const rawText = (response.text ?? "").trim();
@@ -1254,32 +1131,6 @@ async function createApp() {
     const resolvedStyle = rawBody.cartoonStyle || "bold-toon";
     if (getImageEngine() === "filter" && !rawBody.isEdit) {
       res.json({ imageUrl: null, fallbackMode: "photo-filter", styleUsed: resolvedStyle });
-      return;
-    }
-    if (getImageEngine() === "claude" && imageDataUrl && !rawBody.isEdit) {
-      const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUrl);
-      if (!match) {
-        res.status(400).json({ error: "Invalid captured image format. Please capture or upload PNG/JPEG/WebP." });
-        return;
-      }
-      try {
-        const { imageUrl } = await claudePortrait({
-          imageBase64: match[2],
-          mimeType: match[1],
-          styleId: resolvedStyle,
-          seed: String(imageDataUrl.length)
-        });
-        res.json({ imageUrl, fallbackMode: "claude-avatar", model: CLAUDE_MODEL, styleUsed: resolvedStyle });
-      } catch (err) {
-        const reason = err instanceof Anthropic2.AuthenticationError ? "Claude rejected the API key." : err instanceof Anthropic2.RateLimitError ? "Claude rate limit reached, try again in a moment." : err instanceof Error ? err.message.slice(0, 160) : "Claude portrait failed.";
-        console.warn("[claude-art] falling back to offline filter:", reason);
-        res.json({
-          imageUrl: null,
-          fallbackMode: "comic-cel-shade",
-          styleUsed: resolvedStyle,
-          notice: `AI portrait unavailable (${reason}) Used the offline cartoon filter instead.`
-        });
-      }
       return;
     }
     const ai = getGeminiClient();

@@ -131,7 +131,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
     fetch('/api/health')
       .then((r) => r.json())
       .then((h) => {
-        setAiOnline(Boolean(h.anthropicConfigured || h.geminiConfigured));
+        setAiOnline(Boolean(h.geminiConfigured));
         setGeminiState(h.geminiStatus ?? (h.geminiConfigured ? 'ok' : 'off'));
       })
       .catch(() => setAiOnline(false));

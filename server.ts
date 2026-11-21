@@ -1,10 +1,9 @@
 import 'dotenv/config';
-import Anthropic from '@anthropic-ai/sdk';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CLAUDE_MODEL, claudePortrait, getAnthropicClient, stylePreviewSvg } from './server/claudeArt.ts';
+import { stylePreviewSvg } from './server/claudeArt.ts';
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { STREAMS } from './src/utils/streams.ts';
 import { buildGeminiPrompt } from './server/portraitArt.ts';
@@ -47,60 +46,15 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
-function getAnthropicApiKey(): string | null {
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey || apiKey === 'MY_ANTHROPIC_API_KEY') {
-    return null;
-  }
-  return apiKey;
-}
-
-const CARD_TEXT_SCHEMA = {
-  type: 'object',
-  properties: {
-    title: { type: 'string', description: 'Funny 2-4 word epithet, max 28 chars, no name.' },
-    intro: { type: 'string', description: 'Exactly two short punchy sentences, 14-24 words total.' },
-    strength: { type: 'string', description: 'ONE word.' },
-    weakness: { type: 'string', description: 'ONE word.' },
-    hobby: { type: 'string', description: 'ONE word.' },
-    power: { type: 'integer', description: '60-99' },
-    recommended_character: {
-      type: 'string',
-      enum: ['gadget-cat', 'mischief-maverick', 'harmony-ace', 'strategy-prodigy', 'visionary-captain', 'data-wizard'],
-    },
-  },
-  required: ['title', 'intro', 'strength', 'weakness', 'hobby', 'power', 'recommended_character'],
-  additionalProperties: false,
-};
-
-/** Card text via the Anthropic SDK with a JSON schema, so the reply always parses. */
-async function callAnthropicJson(params: { system: string; userPrompt: string }): Promise<unknown> {
-  const anthropic = getAnthropicClient();
-  if (!anthropic) throw new Error('ANTHROPIC_API_KEY is not set.');
-  const response = await anthropic.beta.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: 4000,
-    output_config: { effort: 'low', format: { type: 'json_schema', schema: CARD_TEXT_SCHEMA } },
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    system: params.system,
-    messages: [{ role: 'user', content: params.userPrompt }],
-  });
-  if (response.stop_reason === 'refusal') throw new Error('Claude declined to write this card.');
-  const text = response.content.find((b) => b.type === 'text');
-  if (!text || text.type !== 'text') throw new Error('Claude returned no card text.');
-  return JSON.parse(text.text);
-}
-
 /**
  * Which service makes the portrait.
  *   filter (default): the browser applies an Instagram-style filter to the real photo.
- *   claude: Claude reads the photo and builds a vector cartoon avatar.
  *   gemini: Gemini repaints the photo (needs billing).
  */
 function getImageEngine(): ArtEngine {
   const forced = process.env.IMAGE_ENGINE?.trim().toLowerCase();
-  if (forced === 'claude' || forced === 'gemini' || forced === 'filter') return forced;
+  // Gemini only: the old 'claude' engine is no longer used.
+  if (forced === 'gemini' || forced === 'filter') return forced;
   return 'filter';
 }
 
@@ -234,10 +188,9 @@ export async function createApp() {
     res.json({
       ok: true,
       imageEngine: getImageEngine(),
-      imageModel: getImageEngine() === 'filter' ? 'browser photo filter' : getImageEngine() === 'claude' ? CLAUDE_MODEL : (workingImageModel ?? imageModels[0] ?? null),
-      aiConfigured: Boolean(getGeminiClient() || getAnthropicApiKey()),
+      imageModel: getImageEngine() === 'filter' ? 'browser photo filter' : (workingImageModel ?? imageModels[0] ?? null),
+      aiConfigured: Boolean(getGeminiClient()),
       geminiConfigured: Boolean(getGeminiClient()),
-      anthropicConfigured: Boolean(getAnthropicApiKey()),
       geminiStatus: geminiStatus(),
     });
   });
@@ -274,11 +227,9 @@ export async function createApp() {
     }
 
     const ai = getGeminiClient();
-    const anthropicKey = getAnthropicApiKey();
-
-    if (!ai && !anthropicKey) {
+    if (!ai) {
       res.status(503).json({
-        error: 'Configure GEMINI_API_KEY or ANTHROPIC_API_KEY in Settings > Secrets.',
+        error: 'Configure GEMINI_API_KEY in Settings > Secrets.',
       });
       return;
     }
@@ -302,28 +253,8 @@ export async function createApp() {
         typed('Hobby', input.hobby),
       ].join('\n');
 
-      if (anthropicKey) {
-        try {
-          const parsed = await callAnthropicJson({
-            system: EXACT_SYSTEM_PROMPT,
-            userPrompt,
-          });
-          const normalized = normalizePitchResponse(parsed, input);
-          res.json(normalized);
-          return;
-        } catch (anthropicErr) {
-          if (!ai) {
-            throw anthropicErr;
-          }
-          console.warn(
-            'Anthropic pitch call failed, falling back to Gemini:',
-            anthropicErr instanceof Error ? anthropicErr.message : anthropicErr
-          );
-        }
-      }
-
       const response = await Promise.race([
-        ai!.models.generateContent({
+        ai.models.generateContent({
           model: 'gemini-4-hydrogen',
           contents: userPrompt,
           config: {
@@ -350,7 +281,7 @@ export async function createApp() {
           },
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Gemini API timed out after 10s.')), 10000)
+          setTimeout(() => reject(new Error('Gemini API timed out after 20s.')), 20000)
         ),
       ]);
 
@@ -448,7 +379,6 @@ export async function createApp() {
     }
   });
 
-  // Sample avatar per style for the booth tiles (Claude engine). No API call.
   // Stream portrait painted by Gemini from the visitor's photo. The browser sends a photo already
   // resized under 512x512; on any failure the booth keeps its in-browser portrait.
   app.post('/api/magic-portrait', async (req, res) => {
@@ -508,40 +438,6 @@ export async function createApp() {
     // Filter engine: the browser applies the photo filter itself; nothing to call.
     if (getImageEngine() === 'filter' && !rawBody.isEdit) {
       res.json({ imageUrl: null, fallbackMode: 'photo-filter', styleUsed: resolvedStyle });
-      return;
-    }
-
-    // Claude engine: vision picks avatar-kit parts, DiceBear draws the portrait.
-    if (getImageEngine() === 'claude' && imageDataUrl && !rawBody.isEdit) {
-      const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUrl);
-      if (!match) {
-        res.status(400).json({ error: 'Invalid captured image format. Please capture or upload PNG/JPEG/WebP.' });
-        return;
-      }
-      try {
-        const { imageUrl } = await claudePortrait({
-          imageBase64: match[2],
-          mimeType: match[1],
-          styleId: resolvedStyle,
-          seed: String(imageDataUrl.length),
-        });
-        res.json({ imageUrl, fallbackMode: 'claude-avatar', model: CLAUDE_MODEL, styleUsed: resolvedStyle });
-      } catch (err) {
-        const reason = err instanceof Anthropic.AuthenticationError
-          ? 'Claude rejected the API key.'
-          : err instanceof Anthropic.RateLimitError
-            ? 'Claude rate limit reached, try again in a moment.'
-            : err instanceof Error
-              ? err.message.slice(0, 160)
-              : 'Claude portrait failed.';
-        console.warn('[claude-art] falling back to offline filter:', reason);
-        res.json({
-          imageUrl: null,
-          fallbackMode: 'comic-cel-shade',
-          styleUsed: resolvedStyle,
-          notice: `AI portrait unavailable (${reason}) Used the offline cartoon filter instead.`,
-        });
-      }
       return;
     }
 
