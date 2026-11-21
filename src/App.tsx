@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { BackgroundArtwork } from './components/BackgroundArtwork';
 import { BoothFlow, type BoothResult } from './components/BoothFlow';
+import { HistoryTab } from './components/HistoryTab';
 import { RevealStage } from './components/RevealStage';
 import { SummoningOverlay } from './components/SummoningOverlay';
 import { PitchCardPreview } from './components/PitchCardPreview';
@@ -30,6 +31,7 @@ import {
 } from './utils/pitch';
 import { applyComicCartoonFilter } from './utils/cartoonize';
 import { applyPhotoFilter } from './utils/photoFilters';
+import { deleteCardFromHistory, listHistory, saveCardToHistory } from './utils/cardHistory';
 
 const EMPTY_INPUT: PitchInput = {
   visitorType: 'PGDM Student',
@@ -65,6 +67,65 @@ export default function App() {
   const [revealCard, setRevealCard] = useState<VisitorCard | null>(null);
   const [visitorQueue, setVisitorQueue] = useState<VisitorCard[]>([]);
   const [serialCounter, setSerialCounter] = useState(1);
+  const [historyCards, setHistoryCards] = useState<VisitorCard[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [printCard, setPrintCard] = useState<VisitorCard | null>(null);
+
+  const reloadHistory = useCallback(async () => {
+    try {
+      const cards = await listHistory();
+      setHistoryCards(cards);
+      // keep card numbers unique across reloads
+      const maxSerial = cards.reduce((m, c) => Math.max(m, c.cardSerial || 0), 0);
+      setSerialCounter((c) => Math.max(c, maxSerial + 1));
+      setHistoryError(null);
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : 'Could not load card history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void reloadHistory();
+  }, [reloadHistory]);
+
+  const persistCard = useCallback((card: VisitorCard) => {
+    setHistoryCards((prev) => {
+      const rest = prev.filter((c) => c.id !== card.id);
+      return [card, ...rest].sort((a, b) => b.createdAt - a.createdAt);
+    });
+    saveCardToHistory(card).catch((err) =>
+      setHistoryError(err instanceof Error ? `Card not saved to history: ${err.message}` : 'Card not saved to history.')
+    );
+  }, []);
+
+  // Keep saved cards in sync when the current card changes after it was made (new portrait, edits, font).
+  useEffect(() => {
+    if (!currentCard) return;
+    const saved = historyCards.find((c) => c.id === currentCard.id);
+    if (saved && saved !== currentCard) persistCard(currentCard);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCard]);
+
+  // Print one specific card (e.g. from History): render it into the print sheet, then print.
+  useEffect(() => {
+    if (!printCard) return;
+    const t = window.setTimeout(() => {
+      window.print();
+      setPrintCard(null);
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [printCard]);
+
+  const handleDeleteHistoryCard = (card: VisitorCard) => {
+    if (!window.confirm(`Delete ${card.name}'s card and photo from history? This cannot be undone.`)) return;
+    setHistoryCards((prev) => prev.filter((c) => c.id !== card.id));
+    setVisitorQueue((prev) => prev.filter((c) => c.id !== card.id));
+    if (currentCard?.id === card.id) setCurrentCard(null);
+    deleteCardFromHistory(card.id).catch(() => void reloadHistory());
+  };
 
   // 90-second booth intake stopwatch
   const [sessionStartMs, setSessionStartMs] = useState<number | null>(null);
@@ -281,7 +342,12 @@ export default function App() {
     }));
   };
 
-  const commitCard = (result: PitchResult, generationMs: number, sourceInput: PitchInput) => {
+  const commitCard = (
+    result: PitchResult,
+    generationMs: number,
+    sourceInput: PitchInput,
+    { save = true }: { save?: boolean } = {}
+  ) => {
     const nextSerial = serialCounter;
     setSerialCounter((c) => c + 1);
     const newCard: VisitorCard = {
@@ -307,6 +373,7 @@ export default function App() {
     setCurrentCard(newCard);
     setVisitorQueue((prev) => pushVisitorToQueue(prev, newCard, 4));
     setRevealCard(newCard);
+    if (save) persistCard(newCard);
   };
 
   /** `portraitPromise` (optional) replaces the cartoon request, e.g. the Gemini stream portrait. */
@@ -447,7 +514,7 @@ export default function App() {
     setCharacterError(null);
     const fallback = buildFallbackPitch(sample, serialCounter);
     setNotice('Sample 2.5 × 3.5 in (63.5 × 88.9 mm) collector card loaded. Click "Make my pitch" for live AI.');
-    commitCard(fallback, 400, sample);
+    commitCard(fallback, 400, sample, { save: false });
   };
 
   const handleNewVisitor = () => {
@@ -517,6 +584,7 @@ export default function App() {
                 { id: 'create', label: 'Create Card' },
                 { id: 'say-it', label: 'Say It' },
                 { id: 'print', label: 'Print Card (2.5×3.5")' },
+                { id: 'history', label: `History (${historyCards.length})` },
                 { id: 'test-plan', label: 'Test Plan' },
               ] as const
             ).map((tab) => {
@@ -557,7 +625,7 @@ export default function App() {
         {/* Mobile Navigation Strip */}
         <nav
           aria-label="Mobile sections"
-          className="no-print md:hidden grid grid-cols-5 gap-1 bg-[#081226] border border-sky-400/30 rounded-xl p-1 mb-5"
+          className="no-print md:hidden grid grid-cols-6 gap-1 bg-[#081226] border border-sky-400/30 rounded-xl p-1 mb-5"
         >
           {(
             [
@@ -565,6 +633,7 @@ export default function App() {
               { id: 'create', label: 'Create' },
               { id: 'say-it', label: 'Say It' },
               { id: 'print', label: 'Print' },
+              { id: 'history', label: 'History' },
               { id: 'test-plan', label: 'Tests' },
             ] as const
           ).map((tab) => {
@@ -691,31 +760,34 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'history' && (
+          <HistoryTab
+            cards={historyCards}
+            loading={historyLoading}
+            error={historyError}
+            onShow={(card) => {
+              setCurrentCard(card);
+              setRevealCard(card);
+            }}
+            onPrint={(card) => {
+              setCurrentCard(card);
+              setPrintCard(card);
+            }}
+            onDelete={handleDeleteHistoryCard}
+            onImported={() => void reloadHistory()}
+          />
+        )}
+
         {activeTab === 'test-plan' && (
           <div className="no-print">
             <TestPlanTab currentCard={currentCard} historyCount={visitorQueue.length} />
           </div>
         )}
 
-        {/* Global Single-Tap Print Sheet (Exact 2.5 x 3.5 in / 63.5 x 88.9 mm Front + Back Pair) */}
-        {(currentCard ?? visitorQueue[0]) && (
-          <div className="hidden print-only-pokemon-pair bg-white text-slate-900">
-            <div className="text-center mb-3">
-              <p className="text-[10px] font-mono-nums font-bold tracking-wider uppercase text-slate-700">
-                My Pitch Card · #DYPAICoE Launch · Dr. D. Y. Patil B-School, Pune (2.5 × 3.5 in / 63.5 × 88.9 mm)
-              </p>
-            </div>
-            <div className="flex items-start justify-center gap-[6mm]">
-              <div className="p-[1.5mm] border border-dashed border-slate-500">
-                <TcgPitchCard card={(currentCard ?? visitorQueue[0])!} mode="print" side="front" />
-              </div>
-              <div className="p-[1.5mm] border border-dashed border-slate-500">
-                <TcgPitchCard card={(currentCard ?? visitorQueue[0])!} mode="print" side="back" />
-              </div>
-            </div>
-            <p className="text-[9px] text-slate-600 mt-3">
-              Cut along the dashed trim lines (63.5 × 88.9 mm / 2.5 × 3.5 in) and fold or sleeve back-to-back.
-            </p>
+        {/* Global print sheet: one front card per page at exact 2.5 x 3.5 in (63.5 x 88.9 mm) */}
+        {(printCard ?? currentCard ?? visitorQueue[0]) && (
+          <div className="hidden print-only-pokemon-pair">
+            <TcgPitchCard card={(printCard ?? currentCard ?? visitorQueue[0])!} mode="print" />
           </div>
         )}
       </main>
@@ -738,6 +810,10 @@ export default function App() {
             onClose={() => setRevealCard(null)}
             onPrint={() => window.print()}
             onNext={() => {
+              if (activeTab === 'history') {
+                setRevealCard(null);
+                return;
+              }
               const wasBooth = activeTab === 'booth';
               setRevealCard(null);
               handleNewVisitor();

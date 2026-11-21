@@ -141,7 +141,7 @@ export function PowersStep({ name, styleId, personaId, powers, onChange, preview
               transition={{ type: 'spring', stiffness: 120, damping: 16 }}
             >
               <HoloTilt intensity={10} idle>
-                <TcgPitchCard card={buildPreviewCard(name, styleId, personaId, powers, previewUrl, stream)} mode="preview" side="front" />
+                <TcgPitchCard card={buildPreviewCard(name, styleId, personaId, powers, previewUrl, stream)} mode="preview" />
               </HoloTilt>
               <p className="mt-3 text-center font-mono-nums text-[10px] uppercase tracking-[0.3em] text-sky-400/70">Live preview</p>
             </motion.div>

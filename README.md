@@ -8,7 +8,14 @@ Snap a photo → AI turns it into a cartoon → get a funny trading-style **powe
 - a two-line intro
 - one-word **Strength / Weakness / Hobby** (type them, or leave blank and AI invents funny ones)
 
-The back of the card is the name sticker, so cards print double-sided.
+Only the front of the card is printed (one card per page, page size 2.5 × 3.5 in, no margins).
+
+- **Download card** saves a 750 × 1050 PNG (2.5 × 3.5 in at 300 dpi), so it also prints at exact size.
+- **Share on WhatsApp** opens the phone's share sheet with the card image (pick WhatsApp). On desktop
+  browsers that cannot share files, it downloads the image and opens WhatsApp Web with the message.
+- **History** tab: every card made on this device, with its original photo and portrait, is saved in the
+  browser (IndexedDB) and survives reloads. Search, show full screen, print, download, share or delete old
+  cards, and use **Backup / Restore** to move the history to another device.
 
 ## Run
 
