@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { selectOnFocus } from '../utils/selectOnFocus';
 import { cleanMemberNo } from '../utils/foundingMember';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Camera, ImageUp, Settings2, Sparkles } from 'lucide-react';
@@ -339,6 +340,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
                   <input
                     value={memberNo}
                     onChange={(e) => setMemberNoInput(cleanMemberNo(e.target.value))}
+                    {...selectOnFocus}
                     inputMode="numeric"
                     aria-label="Founding member number"
                     autoComplete="off"
