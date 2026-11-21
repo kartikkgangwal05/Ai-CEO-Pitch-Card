@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { memberNo } from '../utils/foundingMember';
 import { Download, Eye, Image as ImageIcon, Layers, Printer, Search, Trash2, Upload, X } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
 import { downloadBlob } from '../utils/cardExport';
@@ -36,7 +37,7 @@ export function HistoryTab({ cards, loading, error, onShow, onPrint, onDelete, o
     const q = query.trim().toLowerCase();
     if (!q) return cards;
     return cards.filter((c) =>
-      [c.name, c.title, c.specialisation, String(c.cardSerial)].some((v) => v?.toLowerCase().includes(q))
+      [c.name, c.title, c.specialisation, memberNo(c)].some((v) => v?.toLowerCase().includes(q))
     );
   }, [cards, query]);
   const withPhotos = filtered.filter((c) => c.capturedPhotoUrl || c.aiCharacterUrl);
@@ -72,7 +73,7 @@ export function HistoryTab({ cards, loading, error, onShow, onPrint, onDelete, o
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, title, serial"
+              placeholder="Search name, title, member no."
               aria-label="Search card history"
               className="w-56 rounded-xl border border-sky-400/35 bg-[#040A17] py-2 pl-8 pr-3 text-xs text-white placeholder:text-sky-200/50 focus:border-[#00D4FF] focus:outline-none"
             />
@@ -173,7 +174,7 @@ export function HistoryTab({ cards, loading, error, onShow, onPrint, onDelete, o
               <div className="w-full text-center">
                 <p className="truncate text-sm font-bold text-white">{card.name}</p>
                 <p className="truncate text-[11px] text-sky-200/80">
-                  #{String(card.cardSerial).padStart(2, '0')} · {card.title} · {formatWhen(card.createdAt)}
+                  #{memberNo(card)} · {card.title} · {formatWhen(card.createdAt)}
                 </p>
               </div>
               <div className="flex w-full items-center gap-1.5">

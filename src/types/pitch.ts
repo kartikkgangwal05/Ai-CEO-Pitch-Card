@@ -73,6 +73,8 @@ export interface PitchInput {
   tagline: string;
   motivationalLine: string;
   tone: Tone;
+  /** Founding member number typed by the booth team, printed on the card (e.g. "027"). */
+  foundingMemberNo?: string;
 }
 
 export interface PitchResult {

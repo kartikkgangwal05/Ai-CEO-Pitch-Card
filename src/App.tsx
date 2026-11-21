@@ -32,6 +32,7 @@ import {
 import { applyComicCartoonFilter } from './utils/cartoonize';
 import { applyPhotoFilter } from './utils/photoFilters';
 import { deleteCardFromHistory, listHistory, saveCardToHistory } from './utils/cardHistory';
+import { cleanMemberNo, nextMemberNo } from './utils/foundingMember';
 
 const EMPTY_INPUT: PitchInput = {
   visitorType: 'PGDM Student',
@@ -53,6 +54,7 @@ const EMPTY_INPUT: PitchInput = {
   tagline: '',
   motivationalLine: '',
   tone: 'Confident',
+  foundingMemberNo: '',
 };
 
 export default function App() {
@@ -71,6 +73,7 @@ export default function App() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [printCard, setPrintCard] = useState<VisitorCard | null>(null);
+  const suggestedMemberNo = nextMemberNo(historyCards);
 
   const reloadHistory = useCallback(async () => {
     try {
@@ -365,6 +368,7 @@ export default function App() {
       dreamRole: sourceInput.dreamRole,
       tone: sourceInput.tone,
       ...result,
+      foundingMemberNo: cleanMemberNo(sourceInput.foundingMemberNo ?? '') || suggestedMemberNo,
       id: `visitor-${Date.now()}-${nextSerial}`,
       createdAt: Date.now(),
       generationMs,
@@ -442,6 +446,7 @@ export default function App() {
     const boothInput: PitchInput = {
       ...EMPTY_INPUT,
       name: result.name,
+      foundingMemberNo: result.foundingMemberNo,
       capturedPhotoUrl: result.photoDataUrl,
       // Filtered photo is already made in the booth, so no image API call is needed.
       aiCharacterUrl: result.portraitUrl,
@@ -707,6 +712,7 @@ export default function App() {
                 characterError={characterError}
                 elapsedSeconds={elapsedSeconds}
                 onChange={handleFieldChange}
+                suggestedMemberNo={suggestedMemberNo}
                 onPhotoCapturedAndCartoonify={handlePhotoCapturedAndCartoonify}
                 onGenerateAiCharacter={(isEdit) => void handleGenerateAiCharacter(isEdit)}
                 onClearCharacterMedia={handleClearCharacterMedia}
@@ -795,6 +801,7 @@ export default function App() {
       {activeTab === 'booth' && (
         <BoothFlow
           onComplete={handleBoothComplete}
+          suggestedMemberNo={suggestedMemberNo}
           onOpenStudio={() => setActiveTab('create')}
           paused={isGenerating || revealCard !== null}
         />
