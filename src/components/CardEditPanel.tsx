@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { selectOnFocus } from '../utils/selectOnFocus';
 import { cleanMemberNo, memberNo } from '../utils/foundingMember';
 import { Check, Sparkles, X } from 'lucide-react';
 import type {
@@ -187,6 +188,7 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
             inputMode="numeric"
             value={foundingMemberNo}
             onChange={(e) => setFoundingMemberNo(cleanMemberNo(e.target.value))}
+            {...selectOnFocus}
             className={inputClass}
           />
         </div>
