@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Pencil, Printer, X } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
 import { CardEditPanel } from './CardEditPanel';
+import { CardShareActions } from './CardShareActions';
 import { TcgPitchCard } from './TcgPitchCard';
 
 interface CardFullscreenModalProps {
@@ -21,7 +22,6 @@ export function CardFullscreenModal({
   onPrint,
 }: CardFullscreenModalProps) {
   const [isEditing, setIsEditing] = useState(initialEditMode);
-  const [activeSide, setActiveSide] = useState<'both' | 'front' | 'back'>('both');
 
   useEffect(() => {
     setIsEditing(initialEditMode);
@@ -73,30 +73,6 @@ export function CardFullscreenModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Side View Filter */}
-            <div className="hidden sm:flex items-center rounded-xl border border-sky-400/25 bg-[#040A17] p-0.5 text-xs">
-              {(
-                [
-                  { id: 'both', label: 'Both Sides' },
-                  { id: 'front', label: 'Front' },
-                  { id: 'back', label: 'Back Sticker' },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setActiveSide(opt.id)}
-                  className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
-                    activeSide === opt.id
-                      ? 'bg-[#00D4FF] text-[#030712]'
-                      : 'text-sky-200 hover:text-white'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
             <button
               type="button"
               onClick={() => setIsEditing((prev) => !prev)}
@@ -138,35 +114,7 @@ export function CardFullscreenModal({
         {isEditing ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div className="lg:col-span-5 space-y-4">
-              <div className="flex justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveSide('front')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer ${
-                    activeSide !== 'back'
-                      ? 'bg-[#00D4FF] text-[#030712] border-[#00D4FF]'
-                      : 'bg-[#081226] text-sky-200 border-sky-400/30'
-                  }`}
-                >
-                  Front · Pitch Card
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveSide('back')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer ${
-                    activeSide === 'back'
-                      ? 'bg-[#00D4FF] text-[#030712] border-[#00D4FF]'
-                      : 'bg-[#081226] text-sky-200 border-sky-400/30'
-                  }`}
-                >
-                  Back · Name Sticker
-                </button>
-              </div>
-              <TcgPitchCard
-                card={card}
-                mode="preview"
-                side={activeSide === 'back' ? 'back' : 'front'}
-              />
+              <TcgPitchCard card={card} mode="preview" />
             </div>
 
             <div className="lg:col-span-7">
@@ -179,27 +127,15 @@ export function CardFullscreenModal({
           </div>
         ) : (
           <div className="pt-2 pb-10 flex flex-wrap items-start justify-center gap-8">
-            {activeSide !== 'back' && (
-              <div className="w-full max-w-[360px] space-y-2.5 text-center">
-                <p className="text-xs font-mono-nums text-sky-300 uppercase tracking-wider">
-                  Front · Executive Collector Card
-                </p>
-                <div className="sm:scale-[1.05] origin-top transition-transform">
-                  <TcgPitchCard card={card} mode="preview" side="front" />
-                </div>
+            <div className="w-full max-w-[360px] space-y-2.5 text-center">
+              <p className="text-xs font-mono-nums text-sky-300 uppercase tracking-wider">
+                Power Card · 2.5 × 3.5 in
+              </p>
+              <div className="sm:scale-[1.05] origin-top transition-transform">
+                <TcgPitchCard card={card} mode="preview" />
               </div>
-            )}
-
-            {activeSide !== 'front' && (
-              <div className="w-full max-w-[360px] space-y-2.5 text-center">
-                <p className="text-xs font-mono-nums text-sky-300 uppercase tracking-wider">
-                  Back · Die-Cut Name Sticker
-                </p>
-                <div className="sm:scale-[1.05] origin-top transition-transform">
-                  <TcgPitchCard card={card} mode="preview" side="back" />
-                </div>
-              </div>
-            )}
+              <CardShareActions card={card} className="pt-4" />
+            </div>
           </div>
         )}
       </div>

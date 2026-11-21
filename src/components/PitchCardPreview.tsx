@@ -6,6 +6,7 @@ import { TCG_THEMES, countWords, estimateReadSeconds, formatQrPlainText } from '
 import { CharacterIllustrationSvg } from './CharacterIllustrationSvg';
 import { PitchTextHighlight } from './PitchTextHighlight';
 import { HoloTilt } from './HoloTilt';
+import { CardShareActions } from './CardShareActions';
 import { TcgPitchCard } from './TcgPitchCard';
 
 interface PitchCardPreviewProps {
@@ -41,7 +42,6 @@ export function PitchCardPreview({
   onOpenPrint,
   onLoadSampleCard,
 }: PitchCardPreviewProps) {
-  const [cardSide, setCardSide] = useState<'front' | 'back'>('front');
   const [copiedType, setCopiedType] = useState<'all' | 'headline' | null>(null);
   const [showQrPlainText, setShowQrPlainText] = useState(false);
 
@@ -184,40 +184,11 @@ export function PitchCardPreview({
         </div>
       )}
 
-      {/* Split Display: Left = Interactive Front/Back 63x88 Card + Single-Tap Print, Right = Executive Pitch & QR Companion */}
+      {/* Split Display: Left = 63.5x88.9mm Card + Single-Tap Print, Right = Executive Pitch & QR Companion */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         <div className="xl:col-span-6 space-y-3">
-          {/* Front / Back Toggle Bar */}
-          <div className="flex items-center justify-between gap-2 bg-[#081226] border border-sky-400/30 rounded-xl p-1 max-w-[356px] mx-auto">
-            <button
-              type="button"
-              onClick={() => setCardSide('front')}
-              aria-pressed={cardSide === 'front'}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
-                cardSide === 'front'
-                  ? 'bg-[#00D4FF] text-[#030712]'
-                  : 'text-sky-100 hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Front: Power Card</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCardSide('back')}
-              aria-pressed={cardSide === 'back'}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
-                cardSide === 'back'
-                  ? 'bg-[#00D4FF] text-[#030712]'
-                  : 'text-sky-100 hover:text-white'
-              }`}
-            >
-              <span>Back: Name Sticker</span>
-            </button>
-          </div>
-
           <HoloTilt className="max-w-[356px] mx-auto" idle={false} intensity={11}>
-            <TcgPitchCard key={`${card.id}-${cardSide}`} card={card} mode="preview" side={cardSide} />
+            <TcgPitchCard key={card.id} card={card} mode="preview" />
           </HoloTilt>
 
           {/* Single-Tap Print Bar right below the card */}
@@ -251,6 +222,7 @@ export function PitchCardPreview({
               Queue ({queueCount})
             </button>
           </div>
+          <CardShareActions card={card} className="max-w-[356px] mx-auto" />
         </div>
 
         <div className="xl:col-span-6 bg-[#081226]/95 border border-sky-400/30 rounded-2xl p-5 space-y-4">

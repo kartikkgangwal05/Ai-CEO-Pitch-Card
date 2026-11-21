@@ -7,6 +7,7 @@ import type { VisitorCard } from '../types/pitch';
 import { TCG_THEMES } from '../utils/pitch';
 import { isMuted, playReveal, setMuted } from '../utils/sfx';
 import { HoloTilt } from './HoloTilt';
+import { CardShareActions } from './CardShareActions';
 import { TcgPitchCard } from './TcgPitchCard';
 
 // The on-screen preview card is 356 x 498 px (5:7). We scale it up to fill the projector.
@@ -183,7 +184,7 @@ export function RevealStage({ card, warning, onClose, onPrint, onNext }: RevealS
                     if (!revealed) celebrate();
                   }}
                 >
-                  <TcgPitchCard key={`front-${card.id}`} card={card} mode="preview" side="front" />
+                  <TcgPitchCard key={`front-${card.id}`} card={card} mode="preview" />
                   {/* Scan beam riding the wipe edge */}
                   <motion.div
                     aria-hidden="true"
@@ -274,6 +275,7 @@ export function RevealStage({ card, warning, onClose, onPrint, onNext }: RevealS
                 <kbd className="rounded bg-white/10 px-1.5 text-[10px]">Enter</kbd>
               </button>
             </div>
+            <CardShareActions card={card} className="max-w-sm" />
           </motion.div>
         )}
       </AnimatePresence>

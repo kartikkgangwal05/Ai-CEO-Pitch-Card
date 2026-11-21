@@ -112,4 +112,4 @@ export interface SayItFeedback {
   wordCount: number;
 }
 
-export type AppTab = 'booth' | 'create' | 'say-it' | 'print' | 'test-plan';
+export type AppTab = 'booth' | 'create' | 'say-it' | 'print' | 'history' | 'test-plan';
