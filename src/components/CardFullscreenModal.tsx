@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { memberNo } from '../utils/foundingMember';
 import { createPortal } from 'react-dom';
 import { Pencil, Printer, X } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
@@ -65,7 +66,7 @@ export function CardFullscreenModal({
         <div className="bg-[#081226]/95 border border-sky-400/35 rounded-2xl px-4 sm:px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20 shadow-[0_14px_40px_rgba(0,0,0,0.75)]">
           <div>
             <p className="text-[11px] font-mono-nums font-semibold text-[#00D4FF] uppercase tracking-wider">
-              Full-Screen Visitor Card Preview · #{String(card.cardSerial).padStart(2, '0')} · 2.5 × 3.5 in
+              Full-Screen Visitor Card Preview · Founding Member #{memberNo(card)} · 2.5 × 3.5 in
             </p>
             <h2 id="fullscreen-card-title" className="text-base sm:text-lg font-bold text-white">
               {card.name} — {card.specialisation}

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { cleanMemberNo, memberNo } from '../utils/foundingMember';
 import { Check, Sparkles, X } from 'lucide-react';
 import type {
   Specialisation,
@@ -23,6 +24,7 @@ interface CardEditPanelProps {
 export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
   const [visitorType, setVisitorType] = useState<VisitorType>(card.visitorType);
   const [name, setName] = useState(card.name);
+  const [foundingMemberNo, setFoundingMemberNo] = useState(memberNo(card));
   const [currentPosition, setCurrentPosition] = useState(card.currentPosition);
   const [specialisation, setSpecialisation] = useState<Specialisation>(card.specialisation);
   const [dreamRole, setDreamRole] = useState(card.dreamRole);
@@ -39,6 +41,7 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
   useEffect(() => {
     setVisitorType(card.visitorType);
     setName(card.name);
+    setFoundingMemberNo(memberNo(card));
     setCurrentPosition(card.currentPosition);
     setSpecialisation(card.specialisation);
     setDreamRole(card.dreamRole);
@@ -81,6 +84,7 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
       ...card,
       visitorType,
       name: name.trim(),
+      foundingMemberNo: cleanMemberNo(foundingMemberNo) || memberNo(card),
       currentPosition: currentPosition.trim(),
       specialisation,
       dreamRole: dreamRole.trim(),
@@ -169,6 +173,20 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="edit-card-member-no" className="block text-[11px] font-medium text-sky-200 mb-1">
+            Founding Member No.
+          </label>
+          <input
+            id="edit-card-member-no"
+            type="text"
+            inputMode="numeric"
+            value={foundingMemberNo}
+            onChange={(e) => setFoundingMemberNo(cleanMemberNo(e.target.value))}
             className={inputClass}
           />
         </div>

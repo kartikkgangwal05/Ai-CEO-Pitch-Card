@@ -415,3 +415,19 @@ test('cartoonize pixel helpers quantize colors, detect edges, and shade sketches
   assert.ok(paper.r > 200 && paper.b > paper.r);
   assert.ok(ink.r < 60 && ink.b > ink.r);
 });
+
+import { cleanMemberNo, memberNo, nextMemberNo } from './foundingMember';
+
+test('founding member number: typed value is cleaned and kept', () => {
+  assert.equal(cleanMemberNo('#027'), '027');
+  assert.equal(cleanMemberNo('No. 42 '), '42');
+  assert.equal(cleanMemberNo('12345678901'), '12345678');
+  assert.equal(memberNo({ foundingMemberNo: '7', cardSerial: 3 }), '7');
+});
+
+test('founding member number: old cards fall back to serial, next number follows the highest', () => {
+  assert.equal(memberNo({ foundingMemberNo: undefined, cardSerial: 5 }), '005');
+  assert.equal(memberNo({ foundingMemberNo: '', cardSerial: 0 }), '');
+  assert.equal(nextMemberNo([]), '001');
+  assert.equal(nextMemberNo([{ foundingMemberNo: '041', cardSerial: 1 }, { foundingMemberNo: 'VIP-A', cardSerial: 2 }]), '042');
+});

@@ -1,4 +1,5 @@
 import { getFontEmbedCSS, toBlob } from 'html-to-image';
+import { memberNo } from './foundingMember';
 import type { VisitorCard } from '../types/pitch';
 
 /** 2.5 x 3.5 in at 300 dpi: the downloaded PNG prints at exact playing-card size. */
@@ -56,12 +57,12 @@ export async function renderCardNodeToPng(node: HTMLElement): Promise<Blob> {
 
 export function cardFileName(card: VisitorCard): string {
   const slug = card.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'card';
-  return `power-card-${slug}-${String(card.cardSerial).padStart(2, '0')}.png`;
+  return `power-card-${memberNo(card) || card.cardSerial}-${slug}.png`;
 }
 
 export function shareText(card: VisitorCard): string {
   const title = card.title ? ` "${card.title}"` : '';
-  return `Here's my Power Card${title} from the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune!`;
+  return `Here's my Power Card${title} (Founding Member #${memberNo(card)}) from the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune!`;
 }
 
 export function downloadBlob(blob: Blob, fileName: string) {

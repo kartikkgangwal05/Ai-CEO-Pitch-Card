@@ -1,4 +1,5 @@
 import { useId, type CSSProperties } from 'react';
+import { memberNo } from '../utils/foundingMember';
 import type { VisitorCard } from '../types/pitch';
 import { ICON_PATHS, STREAMS } from '../utils/streams';
 
@@ -225,6 +226,29 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
               <span style={{ ...display, ...goldText, fontSize: '1.15em', fontWeight: 900, letterSpacing: '0.05em', lineHeight: 1 }}>
                 #DYPAICOE
               </span>
+              {memberNo(card) && (
+                <div className="flex justify-center" style={{ marginTop: '0.3em' }}>
+                  <p
+                    data-testid="card-member-no"
+                    className="uppercase whitespace-nowrap"
+                    style={{
+                      ...serif,
+                      color: t.light,
+                      background: `${ink}d9`,
+                      border: `0.05em solid ${g1}`,
+                      borderRadius: '0.3em',
+                      padding: '0.22em 0.6em 0.2em',
+                      fontSize: '0.56em',
+                      fontWeight: 800,
+                      letterSpacing: '0.12em',
+                      lineHeight: 1,
+                      fontVariantNumeric: 'lining-nums',
+                    }}
+                  >
+                    Founding Member <span style={{ color: g0, letterSpacing: '0.06em' }}>#{memberNo(card)}</span>
+                  </p>
+                </div>
+              )}
             </header>
 
             {/* Full-bleed portrait behind everything (like the reference cards), emblem if there is no image */}

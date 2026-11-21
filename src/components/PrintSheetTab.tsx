@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { memberNo } from '../utils/foundingMember';
 import { Maximize2, Pencil, Printer, Sparkles } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
 import { CardEditPanel } from './CardEditPanel';
@@ -156,7 +157,7 @@ export function PrintSheetTab({
                     : 'bg-[#081226] border-sky-400/30 text-white hover:border-sky-300'
                 }`}
               >
-                #{String(item.cardSerial).padStart(2, '0')} · {item.name} ({item.specialisation})
+                #{memberNo(item)} · {item.name} ({item.specialisation})
               </button>
             );
           })}

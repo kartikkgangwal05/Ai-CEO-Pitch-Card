@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react';
+import { cleanMemberNo } from '../utils/foundingMember';
 import { Loader2, RotateCcw, Sparkles, Timer } from 'lucide-react';
 import type {
   CartoonStyleId,
@@ -31,6 +32,8 @@ interface PitchFormProps {
   onFillSample: () => void;
   onUseTemplate: () => void;
   onReset: () => void;
+  /** Next free founding member number, used when the field is left blank. */
+  suggestedMemberNo: string;
 }
 
 export function PitchForm({
@@ -48,6 +51,7 @@ export function PitchForm({
   onFillSample,
   onUseTemplate,
   onReset,
+  suggestedMemberNo,
 }: PitchFormProps) {
   const overBudget = elapsedSeconds > 90;
   const isVip = input.visitorType !== 'PGDM Student';
@@ -132,6 +136,27 @@ export function PitchForm({
                 {errors.name}
               </p>
             )}
+          </div>
+
+          <div>
+            <label htmlFor="visitor-member-no" className="block text-xs font-semibold text-white mb-1.5">
+              Founding Member No.
+            </label>
+            <div className="flex items-center rounded-xl border border-sky-400/30 bg-[#040A17] focus-within:ring-2 focus-within:ring-sky-400/50 focus-within:border-sky-400">
+              <span className="pl-3.5 text-sm font-bold text-[#00D4FF]">#</span>
+              <input
+                id="visitor-member-no"
+                name="foundingMemberNo"
+                type="text"
+                inputMode="numeric"
+                value={input.foundingMemberNo ?? ''}
+                onChange={(e) => onChange('foundingMemberNo', cleanMemberNo(e.target.value))}
+                placeholder={suggestedMemberNo}
+                autoComplete="off"
+                className="w-full bg-transparent px-2 py-2.5 text-sm text-white placeholder:text-slate-400 focus:outline-none"
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-sky-200/70">Printed on the card. Leave blank to use #{suggestedMemberNo}.</p>
           </div>
 
           <div>

@@ -1,4 +1,5 @@
 import type { VisitorCard } from '../types/pitch';
+import { memberNo } from '../utils/foundingMember';
 import { getCharacterById } from '../utils/characters';
 import { TCG_THEMES, getPersona } from '../utils/pitch';
 import { photoFilterLabel } from '../utils/photoFilters';
@@ -97,7 +98,7 @@ export function TcgPitchCard({ card, mode = 'preview' }: TcgPitchCardProps) {
                   isPrint ? 'text-[5.2px]' : 'text-[9px]'
                 }`}
               >
-                #{String(card.cardSerial).padStart(3, '0')} · {theme.typeLabel}
+                {memberNo(card) ? `FOUNDING MEMBER #${memberNo(card)}` : theme.typeLabel}
               </span>
             </div>
 

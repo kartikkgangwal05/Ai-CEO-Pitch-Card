@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { cleanMemberNo } from '../utils/foundingMember';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Camera, ImageUp, Settings2, Sparkles } from 'lucide-react';
 import type { CartoonStyleId, PersonaId, Specialisation } from '../types/pitch';
@@ -14,6 +15,8 @@ import { PowersStep, type Powers } from './PowersStep';
 /** What the booth hands back when the person taps "Create my card". */
 export interface BoothResult {
   name: string;
+  /** Founding member number printed on the card. */
+  foundingMemberNo: string;
   photoDataUrl: string;
   /** Best portrait available right now (AI if finished, else the in-browser stream portrait). */
   portraitUrl: string;
@@ -34,6 +37,8 @@ interface BoothFlowProps {
   onOpenStudio: () => void;
   /** True while the summoning/reveal overlays are on top: the booth ignores keys. */
   paused?: boolean;
+  /** Next free founding member number, shown pre-filled and editable. */
+  suggestedMemberNo: string;
 }
 
 type Step = 'attract' | 'name' | 'scan' | 'style' | 'powers';
@@ -95,9 +100,12 @@ const stepMotion = {
  * Full-screen sci-fi kiosk: attract → name → face scan → pick a filter on your own photo → powers.
  * The AI writes the title, intro and any stats left on "AI decides".
  */
-export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlowProps) {
+export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedMemberNo }: BoothFlowProps) {
   const [step, setStep] = useState<Step>('attract');
   const [name, setName] = useState('');
+  // null = not typed yet, so the next free number is shown
+  const [memberNoInput, setMemberNoInput] = useState<string | null>(null);
+  const memberNo = memberNoInput ?? suggestedMemberNo;
   const [photo, setPhoto] = useState<string | null>(null);
   const [localPortrait, setLocalPortrait] = useState<string | null>(null);
   const [ai, setAi] = useState<{ status: 'idle' | 'working' | 'done'; image: string | null; error?: string | null; provider?: 'gemini' }>({ status: 'idle', image: null });
@@ -169,6 +177,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
   const reset = useCallback(() => {
     setStep('attract');
     setName('');
+    setMemberNoInput(null);
     setPhoto(null);
     setLocalPortrait(null);
     setAi({ status: 'idle', image: null });
@@ -187,7 +196,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
     setCreating(true);
     const local = localPortrait ?? (await renderMagicPortrait(photo, stream, 1000).catch(() => photo));
     const aiPortrait = aiJob.current ?? Promise.resolve({ image: null, error: null });
-    onComplete({ name: name.trim(), photoDataUrl: photo, portraitUrl: ai.image ?? local, aiPortrait, cartoonStyle: styleId, personaId, stream, ...powers });
+    onComplete({ name: name.trim(), foundingMemberNo: memberNo, photoDataUrl: photo, portraitUrl: ai.image ?? local, aiPortrait, cartoonStyle: styleId, personaId, stream, ...powers });
     reset();
   };
 
@@ -305,7 +314,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
               className="flex w-full max-w-3xl flex-col items-center text-center"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (name.trim().length >= 2) go('style');
+                if (name.trim().length >= 2 && memberNo) go('style');
               }}
             >
               <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">01 // Identify</p>
@@ -321,11 +330,25 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false }: BoothFlo
                   className="w-full bg-[#00D4FF]/[0.04] px-6 py-6 text-center font-display text-4xl font-extrabold text-white caret-[#00D4FF] placeholder:text-sky-800 focus:outline-none sm:text-6xl"
                 />
               </HudFrame>
+              <label className="mt-6 flex items-center gap-3 font-mono-nums text-sm uppercase tracking-[0.3em] text-sky-300">
+                Founding member
+                <span className="flex items-center rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.06] px-3 py-2 focus-within:border-[#00D4FF]">
+                  <span className="font-display text-2xl font-extrabold text-[#00D4FF]">#</span>
+                  <input
+                    value={memberNo}
+                    onChange={(e) => setMemberNoInput(cleanMemberNo(e.target.value))}
+                    inputMode="numeric"
+                    aria-label="Founding member number"
+                    autoComplete="off"
+                    className="w-28 bg-transparent pl-1 font-display text-2xl font-extrabold tracking-normal text-white caret-[#00D4FF] focus:outline-none"
+                  />
+                </span>
+              </label>
               <div className="mt-10 flex items-center gap-4">
                 <button type="button" onClick={() => go('attract')} className="booth-ghost-btn">
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
                 </button>
-                <button type="submit" disabled={name.trim().length < 2} className="booth-primary-btn">
+                <button type="submit" disabled={name.trim().length < 2 || !memberNo} className="booth-primary-btn">
                   Confirm <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
