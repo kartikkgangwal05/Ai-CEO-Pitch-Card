@@ -368,7 +368,7 @@ export default function App() {
       dreamRole: sourceInput.dreamRole,
       tone: sourceInput.tone,
       ...result,
-      foundingMemberNo: cleanMemberNo(sourceInput.foundingMemberNo ?? '') || suggestedMemberNo,
+      foundingMemberNo: cleanMemberNo(sourceInput.foundingMemberNo ?? '').trim() || suggestedMemberNo,
       id: `visitor-${Date.now()}-${nextSerial}`,
       createdAt: Date.now(),
       generationMs,

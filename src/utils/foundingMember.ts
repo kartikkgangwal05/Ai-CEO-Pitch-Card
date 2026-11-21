@@ -1,16 +1,17 @@
 import type { VisitorCard } from '../types/pitch';
 
-/** Keeps what the team typed, minus a leading "#" or "No.", spaces and odd characters (max 8). */
+/** Keeps what the team typed, minus a leading "#" or "No.", spaces and odd characters (max 12). */
 export function cleanMemberNo(raw: string): string {
   return raw
     .replace(/^\s*(no\.?|#)\s*/i, '')
-    .replace(/[^0-9A-Za-z-]/g, '')
-    .slice(0, 8);
+    .replace(/[^0-9A-Za-z -]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .slice(0, 12);
 }
 
 /** The card's founding member number, falling back to its serial for cards made before the field existed. */
 export function memberNo(card: Pick<VisitorCard, 'foundingMemberNo' | 'cardSerial'>): string {
-  const typed = cleanMemberNo(card.foundingMemberNo ?? '');
+  const typed = cleanMemberNo(card.foundingMemberNo ?? '').trim();
   if (typed) return typed;
   return card.cardSerial > 0 ? String(card.cardSerial).padStart(3, '0') : '';
 }

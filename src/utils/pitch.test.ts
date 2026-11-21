@@ -420,8 +420,9 @@ import { cleanMemberNo, memberNo, nextMemberNo } from './foundingMember';
 
 test('founding member number: typed value is cleaned and kept', () => {
   assert.equal(cleanMemberNo('#027'), '027');
-  assert.equal(cleanMemberNo('No. 42 '), '42');
-  assert.equal(cleanMemberNo('12345678901'), '12345678');
+  assert.equal(cleanMemberNo('No. 42 ').trim(), '42');
+  assert.equal(cleanMemberNo('1234567890123'), '123456789012');
+  assert.equal(cleanMemberNo('VIP  12'), 'VIP 12');
   assert.equal(memberNo({ foundingMemberNo: '7', cardSerial: 3 }), '7');
 });
 

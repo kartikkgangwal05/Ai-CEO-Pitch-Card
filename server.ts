@@ -300,7 +300,6 @@ export async function createApp() {
         typed('Strength', input.strength1),
         typed('Weakness', input.weakness),
         typed('Hobby', input.hobby),
-        'Return ONLY valid JSON with fields: title, intro, strength, weakness, hobby, power, recommended_character.',
       ].join('\n');
 
       if (anthropicKey) {

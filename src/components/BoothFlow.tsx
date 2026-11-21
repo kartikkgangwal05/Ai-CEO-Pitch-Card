@@ -106,6 +106,8 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
   // null = not typed yet, so the next free number is shown
   const [memberNoInput, setMemberNoInput] = useState<string | null>(null);
   const memberNo = memberNoInput ?? suggestedMemberNo;
+  // Stable callback: an inline ref re-runs on every render and would pull focus back from the member field.
+  const focusOnMount = useCallback((el: HTMLInputElement | null) => el?.focus({ preventScroll: true }), []);
   const [photo, setPhoto] = useState<string | null>(null);
   const [localPortrait, setLocalPortrait] = useState<string | null>(null);
   const [ai, setAi] = useState<{ status: 'idle' | 'working' | 'done'; image: string | null; error?: string | null; provider?: 'gemini' }>({ status: 'idle', image: null });
@@ -196,7 +198,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
     setCreating(true);
     const local = localPortrait ?? (await renderMagicPortrait(photo, stream, 1000).catch(() => photo));
     const aiPortrait = aiJob.current ?? Promise.resolve({ image: null, error: null });
-    onComplete({ name: name.trim(), foundingMemberNo: memberNo, photoDataUrl: photo, portraitUrl: ai.image ?? local, aiPortrait, cartoonStyle: styleId, personaId, stream, ...powers });
+    onComplete({ name: name.trim(), foundingMemberNo: memberNo.trim(), photoDataUrl: photo, portraitUrl: ai.image ?? local, aiPortrait, cartoonStyle: styleId, personaId, stream, ...powers });
     reset();
   };
 
@@ -314,14 +316,14 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
               className="flex w-full max-w-3xl flex-col items-center text-center"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (name.trim().length >= 2 && memberNo) go('style');
+                if (name.trim().length >= 2 && memberNo.trim()) go('style');
               }}
             >
               <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">01 // Identify</p>
               <h2 className="mt-3 font-display text-4xl font-extrabold sm:text-5xl">What do we call you, legend?</h2>
               <HudFrame className="mt-10 w-full">
                 <input
-                  ref={(el) => el?.focus({ preventScroll: true })}
+                  ref={focusOnMount}
                   value={name}
                   onChange={(e) => setName(e.target.value.slice(0, 32))}
                   placeholder="Type your name"
@@ -340,7 +342,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
                     inputMode="numeric"
                     aria-label="Founding member number"
                     autoComplete="off"
-                    className="w-28 bg-transparent pl-1 font-display text-2xl font-extrabold tracking-normal text-white caret-[#00D4FF] focus:outline-none"
+                    className="w-40 bg-transparent pl-1 font-display text-2xl font-extrabold tracking-normal text-white caret-[#00D4FF] focus:outline-none"
                   />
                 </span>
               </label>
@@ -348,7 +350,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
                 <button type="button" onClick={() => go('attract')} className="booth-ghost-btn">
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
                 </button>
-                <button type="submit" disabled={name.trim().length < 2 || !memberNo} className="booth-primary-btn">
+                <button type="submit" disabled={name.trim().length < 2 || !memberNo.trim()} className="booth-primary-btn">
                   Confirm <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
