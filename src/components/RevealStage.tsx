@@ -21,6 +21,8 @@ interface RevealStageProps {
   onClose: () => void;
   onPrint: () => void;
   onNext: () => void;
+  /** Label for the Next button (e.g. "Back to cards" when showing an old card). */
+  nextLabel?: string;
 }
 
 function useFitScale() {
@@ -35,7 +37,7 @@ function useFitScale() {
 }
 
 /** Full-screen "wow" reveal: card flies in face-down, flips, flashes and showers confetti. */
-export function RevealStage({ card, warning, onClose, onPrint, onNext }: RevealStageProps) {
+export function RevealStage({ card, warning, onClose, onPrint, onNext, nextLabel = 'Next person' }: RevealStageProps) {
   const scale = useFitScale();
   const theme = TCG_THEMES[card.specialisation];
   const [muted, setMutedState] = useState(isMuted);
@@ -271,7 +273,7 @@ export function RevealStage({ card, warning, onClose, onPrint, onNext }: RevealS
                 onClick={onNext}
                 className="inline-flex items-center gap-2 rounded-xl border border-sky-400/50 bg-[#081226]/85 px-5 py-3 text-sm font-bold text-white hover:bg-[#0D1E42] cursor-pointer"
               >
-                Next person <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                {nextLabel} <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 <kbd className="rounded bg-white/10 px-1.5 text-[10px]">Enter</kbd>
               </button>
             </div>

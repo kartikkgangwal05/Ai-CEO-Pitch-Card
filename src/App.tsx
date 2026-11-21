@@ -31,7 +31,7 @@ import {
 } from './utils/pitch';
 import { applyComicCartoonFilter } from './utils/cartoonize';
 import { applyPhotoFilter } from './utils/photoFilters';
-import { deleteCardFromHistory, listHistory, saveCardToHistory } from './utils/cardHistory';
+import { deleteCardFromHistory, listHistory, saveCardToHistory, syncPending } from './utils/cardHistory';
 import { cleanMemberNo, nextMemberNo } from './utils/foundingMember';
 
 const EMPTY_INPUT: PitchInput = {
@@ -72,13 +72,15 @@ export default function App() {
   const [historyCards, setHistoryCards] = useState<VisitorCard[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyOffline, setHistoryOffline] = useState(false);
   const [printCard, setPrintCard] = useState<VisitorCard | null>(null);
   const suggestedMemberNo = nextMemberNo(historyCards);
 
   const reloadHistory = useCallback(async () => {
     try {
-      const cards = await listHistory();
+      const { cards, offline } = await listHistory();
       setHistoryCards(cards);
+      setHistoryOffline(offline);
       // keep card numbers unique across reloads
       const maxSerial = cards.reduce((m, c) => Math.max(m, c.cardSerial || 0), 0);
       setSerialCounter((c) => Math.max(c, maxSerial + 1));
@@ -90,8 +92,25 @@ export default function App() {
     }
   }, []);
 
+  // Central history: load now, then every 30 s (cards from other devices appear), uploading anything
+  // this device saved while offline.
   useEffect(() => {
-    void reloadHistory();
+    let stopped = false;
+    const tick = async () => {
+      if (document.visibilityState === 'hidden') return;
+      const uploaded = await syncPending().catch(() => 0);
+      if (!stopped) await reloadHistory();
+      if (uploaded > 0 && !stopped) setHistoryError(null);
+    };
+    void tick();
+    const t = window.setInterval(() => void tick(), 30_000);
+    const onVisible = () => document.visibilityState === 'visible' && void tick();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      stopped = true;
+      window.clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [reloadHistory]);
 
   const persistCard = useCallback((card: VisitorCard) => {
@@ -99,9 +118,14 @@ export default function App() {
       const rest = prev.filter((c) => c.id !== card.id);
       return [card, ...rest].sort((a, b) => b.createdAt - a.createdAt);
     });
-    saveCardToHistory(card).catch((err) =>
-      setHistoryError(err instanceof Error ? `Card not saved to history: ${err.message}` : 'Card not saved to history.')
-    );
+    saveCardToHistory(card)
+      .then((saved) => {
+        setHistoryCards((prev) => prev.map((c) => (c.id === saved.id ? saved : c)));
+        setHistoryOffline(false);
+      })
+      .catch(() =>
+        setHistoryError('Saved on this device only for now; it uploads to the central history when the connection is back.')
+      );
   }, []);
 
   // Keep saved cards in sync when the current card changes after it was made (new portrait, edits, font).
@@ -122,12 +146,45 @@ export default function App() {
     return () => window.clearTimeout(t);
   }, [printCard]);
 
-  const handleDeleteHistoryCard = (card: VisitorCard) => {
-    if (!window.confirm(`Delete ${card.name}'s card and photo from history? This cannot be undone.`)) return;
-    setHistoryCards((prev) => prev.filter((c) => c.id !== card.id));
-    setVisitorQueue((prev) => prev.filter((c) => c.id !== card.id));
-    if (currentCard?.id === card.id) setCurrentCard(null);
-    deleteCardFromHistory(card.id).catch(() => void reloadHistory());
+  const handleDeleteHistoryCard = async (card: VisitorCard) => {
+    if (!window.confirm(`Delete ${card.name}'s card and photo from the central history on every device? This cannot be undone.`)) return;
+    let pin: string | null = null;
+    try {
+      pin = sessionStorage.getItem('staff-pin');
+    } catch {
+      /* storage blocked */
+    }
+    pin ??= window.prompt('Staff PIN to delete cards:');
+    if (!pin) return;
+    try {
+      await deleteCardFromHistory(card.id, pin);
+      try {
+        sessionStorage.setItem('staff-pin', pin);
+      } catch {
+        /* storage blocked */
+      }
+      setHistoryCards((prev) => prev.filter((c) => c.id !== card.id));
+      setVisitorQueue((prev) => prev.filter((c) => c.id !== card.id));
+      if (currentCard?.id === card.id) setCurrentCard(null);
+      setHistoryError(null);
+    } catch (err) {
+      if ((err as { status?: number }).status === 401) {
+        try {
+          sessionStorage.removeItem('staff-pin');
+        } catch {
+          /* storage blocked */
+        }
+      }
+      setHistoryError(err instanceof Error ? err.message : 'Could not delete the card.');
+    }
+  };
+
+  // Showing an old card (front page wall or History): "Next" just closes it.
+  const [browsingReveal, setBrowsingReveal] = useState(false);
+  const showCard = (card: VisitorCard) => {
+    setCurrentCard(card);
+    setBrowsingReveal(true);
+    setRevealCard(card);
   };
 
   // 90-second booth intake stopwatch
@@ -376,6 +433,7 @@ export default function App() {
     };
     setCurrentCard(newCard);
     setVisitorQueue((prev) => pushVisitorToQueue(prev, newCard, 4));
+    setBrowsingReveal(false);
     setRevealCard(newCard);
     if (save) persistCard(newCard);
   };
@@ -771,15 +829,13 @@ export default function App() {
             cards={historyCards}
             loading={historyLoading}
             error={historyError}
-            onShow={(card) => {
-              setCurrentCard(card);
-              setRevealCard(card);
-            }}
+            offline={historyOffline}
+            onShow={showCard}
             onPrint={(card) => {
               setCurrentCard(card);
               setPrintCard(card);
             }}
-            onDelete={handleDeleteHistoryCard}
+            onDelete={(card) => void handleDeleteHistoryCard(card)}
             onImported={() => void reloadHistory()}
           />
         )}
@@ -802,6 +858,8 @@ export default function App() {
         <BoothFlow
           onComplete={handleBoothComplete}
           suggestedMemberNo={suggestedMemberNo}
+          recentCards={historyCards}
+          onShowCard={showCard}
           onOpenStudio={() => setActiveTab('create')}
           paused={isGenerating || revealCard !== null}
         />
@@ -814,11 +872,16 @@ export default function App() {
             key={revealCard.id}
             card={revealCard}
             warning={revealCard.aiCharacterUrl && characterError ? characterError : null}
-            onClose={() => setRevealCard(null)}
+            onClose={() => {
+              setRevealCard(null);
+              setBrowsingReveal(false);
+            }}
             onPrint={() => window.print()}
+            nextLabel={browsingReveal ? 'Back to cards' : undefined}
             onNext={() => {
-              if (activeTab === 'history') {
+              if (browsingReveal || activeTab === 'history') {
                 setRevealCard(null);
+                setBrowsingReveal(false);
                 return;
               }
               const wasBooth = activeTab === 'booth';
