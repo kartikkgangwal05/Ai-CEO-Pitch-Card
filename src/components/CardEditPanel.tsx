@@ -84,7 +84,7 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
       ...card,
       visitorType,
       name: name.trim(),
-      foundingMemberNo: cleanMemberNo(foundingMemberNo) || memberNo(card),
+      foundingMemberNo: cleanMemberNo(foundingMemberNo).trim() || memberNo(card),
       currentPosition: currentPosition.trim(),
       specialisation,
       dreamRole: dreamRole.trim(),

@@ -23,7 +23,7 @@ interface SummoningOverlayProps {
   stream?: Specialisation;
 }
 
-/** Full-screen "summoning" loader shown while Gemini / Claude work. */
+/** Full-screen "summoning" loader shown while Gemini works. */
 export function SummoningOverlay({ photoUrl, stream }: SummoningOverlayProps) {
   const [index, setIndex] = useState(0);
 

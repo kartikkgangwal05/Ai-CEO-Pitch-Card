@@ -27,10 +27,10 @@ npm run dev              # http://localhost:3000
 
 | Job | Key / model |
 | --- | --- |
-| Photo → cartoon portrait | `ANTHROPIC_API_KEY` (default, see Portrait engines) or `GEMINI_API_KEY` with `IMAGE_ENGINE=gemini`. For Gemini the server picks the best image model the key can use (prefers `gemini-3.1-flash-image`); image models need billing enabled. |
-| Title, intro, one-word stats | `ANTHROPIC_API_KEY` (Claude) if set, otherwise Gemini |
+| Photo → cartoon portrait | `GEMINI_API_KEY` (booth stream portraits; `IMAGE_ENGINE=gemini` for the Create tab). For Gemini the server picks the best image model the key can use (prefers `gemini-3.1-flash-image`); image models need billing enabled. |
+| Title, intro, one-word stats | `GEMINI_API_KEY` |
 
-An Anthropic key alone runs the whole booth. The booth header shows **AI online / offline**, and the reveal shows an amber note when a portrait fell back.
+The app uses only the Gemini key; no Anthropic key is needed or read. The booth header shows **AI online / offline**, and the reveal shows an amber note when a portrait fell back.
 Without keys the app
 still works: an offline cartoon filter and built-in jokes are used, and the UI says so.
 
@@ -49,7 +49,7 @@ Each student picks their PGDM stream and gets an ornate "magic academy" card in 
 
 The real photo is cut out in the browser (MediaPipe selfie segmenter, model in `public/models/`, wasm copied to
 `public/mediapipe/` on `npm install`) and placed in a glowing scene with a rune circle, sparks, light ribbons and
-floating stream icons. Claude writes a wizard-style title themed on the stream, the intro and any stats left on
+floating stream icons. Gemini writes a wizard-style title themed on the stream, the intro and any stats left on
 "AI decides". Everything except the text runs offline. Themes live in `src/utils/streams.ts`.
 
 ## Booth flow (current)
@@ -94,13 +94,9 @@ refuses (quota or billing), and then the card keeps the in-browser portrait with
 | `IMAGE_ENGINE` | How the portrait is made | Needs |
 | --- | --- | --- |
 | `filter` (default) | The real photo gets an Instagram-style look in the browser: Neon Cyber, Comic Pop, Golden Hour, Holo Foil, Retro Film or Noir Hero. Instant, free, keeps the likeness. | Nothing |
-| `claude` | Claude (`claude-opus-5-5`) looks at the photo and picks hair, glasses, beard, headwear, skin and hair colours from an avatar kit; [DiceBear](https://github.com/dicebear/dicebear) draws a crisp vector cartoon. | Anthropic key only |
 | `gemini` | Gemini repaints the photo in the chosen style, guided by `public/styles/` reference images. | Gemini key with billing enabled |
 
-Claude also writes the funny title, intro and any stats left on "AI decides" (structured JSON output, with
-server-side refusal fallback enabled). Claude-engine avatar art credits: Avataaars and Open Peeps by Pablo Stanley,
-Personas by Draftbit (CC BY 4.0), Toon Head by Johan Melin (CC BY 4.0), Big Smile by Ashley Seo (CC BY 4.0),
-Micah by Micah Lanier (CC BY 4.0).
+Gemini also writes the funny title, intro and any stats left on "AI decides" (JSON schema output).
 
 ## Booth mode (default screen)
 
