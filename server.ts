@@ -1,9 +1,12 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+// .env.local holds the Blob token pulled by `vercel link`; .env holds the AI keys.
+dotenv.config({ path: ['.env.local', '.env'], quiet: true });
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stylePreviewSvg } from './server/claudeArt.ts';
+import { registerHistoryRoutes } from './server/historyStore.ts';
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { STREAMS } from './src/utils/streams.ts';
 import { buildGeminiPrompt } from './server/portraitArt.ts';
@@ -181,6 +184,7 @@ async function geminiPortrait(ai: GoogleGenAI, photo: { mimeType: string; data: 
 export async function createApp() {
   const app = express();
   app.use(express.json({ limit: '15mb' }));
+  registerHistoryRoutes(app);
 
   app.get('/api/health', async (_req, res) => {
     const ai = getGeminiClient();

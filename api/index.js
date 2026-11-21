@@ -1,5 +1,5 @@
 // server.ts
-import "dotenv/config";
+import dotenv from "dotenv";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
@@ -139,6 +139,153 @@ var PREVIEW_PICKS = {
 function stylePreviewSvg(styleId, seed = "Power Card") {
   const { meta } = styleFor(styleId);
   return renderAvatar(styleId, seed, PREVIEW_PICKS[meta.dicebear], true);
+}
+
+// server/historyStore.ts
+import { Readable } from "node:stream";
+import { del, get, list, put } from "@vercel/blob";
+var CARD_PREFIX = "history/cards/";
+var IMG_PREFIX = "history/img/";
+var IMAGE_FIELDS = ["capturedPhotoUrl", "aiCharacterUrl"];
+var ID_RE = /^[A-Za-z0-9_-]{1,100}$/;
+function configured() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+var cardCache = /* @__PURE__ */ new Map();
+async function readText(pathname) {
+  const result = await get(pathname, { access: "private", useCache: false });
+  if (!result || !result.stream) return null;
+  return new Response(result.stream).text();
+}
+async function listCards() {
+  const blobs = [];
+  let cursor;
+  do {
+    const page = await list({ prefix: CARD_PREFIX, cursor, limit: 1e3 });
+    blobs.push(...page.blobs);
+    cursor = page.hasMore ? page.cursor : void 0;
+  } while (cursor);
+  const live = new Set(blobs.map((b) => b.pathname));
+  for (const key of cardCache.keys()) if (!live.has(key)) cardCache.delete(key);
+  const cards = await Promise.all(
+    blobs.map(async (b) => {
+      const uploadedAt = new Date(b.uploadedAt).getTime();
+      const hit = cardCache.get(b.pathname);
+      if (hit && hit.uploadedAt === uploadedAt) return hit.card;
+      try {
+        const text = await readText(b.pathname);
+        if (!text) return null;
+        const card = JSON.parse(text);
+        cardCache.set(b.pathname, { uploadedAt, card });
+        return card;
+      } catch {
+        return null;
+      }
+    })
+  );
+  return cards.filter((c) => Boolean(c)).sort((a, b) => b.createdAt - a.createdAt);
+}
+async function saveCard(input) {
+  const card = { ...input };
+  delete card._pending;
+  delete card._synced;
+  for (const field of IMAGE_FIELDS) {
+    const value = card[field];
+    if (typeof value !== "string") continue;
+    const match = /^data:(image\/(png|jpe?g|webp|gif|svg\+xml));base64,(.+)$/.exec(value);
+    if (!match) continue;
+    const ext = match[2] === "jpeg" ? "jpg" : match[2] === "svg+xml" ? "svg" : match[2];
+    const pathname = `${IMG_PREFIX}${card.id}-${field}.${ext}`;
+    await put(pathname, Buffer.from(match[3], "base64"), {
+      access: "private",
+      contentType: match[1],
+      allowOverwrite: true,
+      addRandomSuffix: false
+    });
+    card[field] = `/api/history/image?p=${encodeURIComponent(pathname)}&v=${Date.now()}`;
+  }
+  await put(`${CARD_PREFIX}${card.id}.json`, JSON.stringify(card), {
+    access: "private",
+    contentType: "application/json",
+    allowOverwrite: true,
+    addRandomSuffix: false
+  });
+  return card;
+}
+async function deleteCard(id) {
+  const imgs = await list({ prefix: `${IMG_PREFIX}${id}-` });
+  await del([`${CARD_PREFIX}${id}.json`, ...imgs.blobs.map((b) => b.pathname)]);
+  cardCache.delete(`${CARD_PREFIX}${id}.json`);
+}
+function notConfigured(res) {
+  res.status(503).json({ error: "Central history is not set up (BLOB_READ_WRITE_TOKEN is missing)." });
+}
+function registerHistoryRoutes(app) {
+  app.get("/api/history", async (_req, res) => {
+    if (!configured()) return notConfigured(res);
+    try {
+      res.set("Cache-Control", "no-store").json({ cards: await listCards() });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : "Could not read history." });
+    }
+  });
+  app.post("/api/history", async (req, res) => {
+    if (!configured()) return notConfigured(res);
+    const card = req.body;
+    if (!card || typeof card.id !== "string" || !ID_RE.test(card.id) || typeof card.name !== "string") {
+      res.status(400).json({ error: "A card with an id and a name is required." });
+      return;
+    }
+    if (typeof card.createdAt !== "number") card.createdAt = Date.now();
+    try {
+      res.json({ card: await saveCard(card) });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : "Could not save the card." });
+    }
+  });
+  app.delete("/api/history/:id", async (req, res) => {
+    if (!configured()) return notConfigured(res);
+    const pin = process.env.STAFF_PIN?.trim();
+    if (!pin) {
+      res.status(503).json({ error: "Deleting is off: set STAFF_PIN in the Vercel project settings." });
+      return;
+    }
+    if (req.get("x-staff-pin") !== pin) {
+      res.status(401).json({ error: "Wrong staff PIN." });
+      return;
+    }
+    const id = String(req.params.id);
+    if (!ID_RE.test(id)) {
+      res.status(400).json({ error: "Bad card id." });
+      return;
+    }
+    try {
+      await deleteCard(id);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : "Could not delete the card." });
+    }
+  });
+  app.get("/api/history/image", async (req, res) => {
+    if (!configured()) return notConfigured(res);
+    const p = String(req.query.p ?? "");
+    if (!p.startsWith(IMG_PREFIX) || p.includes("..")) {
+      res.status(400).end();
+      return;
+    }
+    try {
+      const result = await get(p, { access: "private" });
+      if (!result || !result.stream) {
+        res.status(404).end();
+        return;
+      }
+      res.set("Content-Type", result.blob.contentType ?? "application/octet-stream");
+      res.set("Cache-Control", "public, max-age=31536000, immutable");
+      Readable.fromWeb(result.stream).pipe(res);
+    } catch {
+      res.status(502).end();
+    }
+  });
 }
 
 // src/utils/streams.ts
@@ -632,9 +779,9 @@ function generateUniqueMotivationalLine(input, salt = 0) {
 }
 function generateDefaultTagline(input, salt = 0) {
   const role = summarizePhrase(input.dreamRole || input.specialisation, 3) || "executive";
-  const list = TAGLINE_TEMPLATES[input.specialisation];
-  const idx = hashVisitorSeed(input, salt) % list.length;
-  return list[idx](role);
+  const list2 = TAGLINE_TEMPLATES[input.specialisation];
+  const idx = hashVisitorSeed(input, salt) % list2.length;
+  return list2[idx](role);
 }
 function validatePitchInput(input) {
   const errors = {};
@@ -701,7 +848,7 @@ var FUN_HOBBIES = ["Napping", "Doomscrolling", "Karaoke", "Chai", "Gaming", "Cri
 function buildFunText(input, salt = 0) {
   let h = salt * 7;
   for (const ch of `${input.name}|${input.currentPosition}`) h = h * 31 + ch.charCodeAt(0) >>> 0;
-  const pick = (list, offset) => list[(h + offset) % list.length];
+  const pick = (list2, offset) => list2[(h + offset) % list2.length];
   const first = input.name.trim().split(/\s+/)[0] || "This legend";
   return {
     title: pick(PERSONA_TITLES[input.personaId ?? "none"] ?? FUN_TITLES, 0),
@@ -797,6 +944,7 @@ function normalizePitchResponse(raw, input, salt = 0) {
 }
 
 // server.ts
+dotenv.config({ path: [".env.local", ".env"], quiet: true });
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path.dirname(__filename);
 var PORT = Number(process.env.PORT || 3e3);
@@ -924,6 +1072,7 @@ async function geminiPortrait(ai, photo, stream) {
 async function createApp() {
   const app = express();
   app.use(express.json({ limit: "15mb" }));
+  registerHistoryRoutes(app);
   app.get("/api/health", async (_req, res) => {
     const ai = getGeminiClient();
     const imageModels = ai ? await getImageModelCandidates(ai).catch(() => []) : [];

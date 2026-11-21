@@ -166,7 +166,7 @@ export function AttractHero({ onStart, sampleArt }: AttractHeroProps) {
   const offsets = [-330, -175, 175, 330];
 
   return (
-    <div className="relative flex h-full w-full flex-col items-center justify-center">
+    <div className="relative flex w-full flex-1 flex-col items-center justify-center py-6">
       {/* scene */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 80% at 50% 0%, #2a1f4a 0%, #0b0820 45%, #03030a 100%)' }} />
