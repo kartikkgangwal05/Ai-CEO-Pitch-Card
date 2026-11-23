@@ -1021,6 +1021,57 @@ async function createApp() {
       res.status(502).json({ error: message });
     }
   });
+  const RESTYLE_BRIEFS = {
+    funnier: "Make it funnier: a sharper, more surprising roast, still warm.",
+    inspiring: "Make it uplifting and inspiring, like a hero introduction, with a light touch of humour.",
+    poetic: "Make it poetic and vivid, like a line from an epic, with one fresh image.",
+    rhyme: "Make the two sentences rhyme, like a fun couplet.",
+    shorter: "Make it much shorter and punchier: two very short sentences, 10-14 words total.",
+    bollywood: "Make it sound like a dramatic Bollywood movie trailer voice-over, playful and over the top."
+  };
+  app.post("/api/restyle", async (req, res) => {
+    const { text, name, title, stream, style } = req.body ?? {};
+    const ai = getGeminiClient();
+    if (!ai) {
+      res.status(503).json({ error: "Configure GEMINI_API_KEY in Settings > Secrets." });
+      return;
+    }
+    const brief = RESTYLE_BRIEFS[style ?? ""];
+    if (!brief || !text?.trim()) {
+      res.status(400).json({ error: "Send the current text and a known style." });
+      return;
+    }
+    const prompt = [
+      `Rewrite this power-card quote for ${String(name ?? "").slice(0, 40) || "the card holder"}${title ? ` ("${String(title).slice(0, 40)}")` : ""}${stream ? `, ${String(stream).slice(0, 40)} stream` : ""}.`,
+      `Current quote: "${text.trim().slice(0, 300)}"`,
+      brief,
+      "Keep the same facts. Two sentences, 12-24 words total unless told shorter."
+    ].join("\n");
+    try {
+      const response = await Promise.race([
+        ai.models.generateContent({
+          model: "gemini-4-hydrogen",
+          contents: prompt,
+          config: {
+            systemInstruction: EXACT_SYSTEM_PROMPT,
+            responseMimeType: "application/json",
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: { intro: { type: Type.STRING, description: "The rewritten quote." } },
+              required: ["intro"]
+            }
+          }
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Gemini timed out after 20s.")), 2e4))
+      ]);
+      const intro = String(JSON.parse((response.text ?? "{}").trim()).intro ?? "").trim();
+      if (!intro) throw new Error("Gemini returned no text.");
+      res.json({ intro: intro.slice(0, 170) });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : "Restyle failed." });
+    }
+  });
   app.post("/api/say-it", async (req, res) => {
     const { audioBase64, mimeType, targetPitch, dreamRole, name } = req.body ?? {};
     if (!audioBase64 || !mimeType) {

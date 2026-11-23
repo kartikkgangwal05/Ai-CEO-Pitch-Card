@@ -23,6 +23,7 @@ export function CardFullscreenModal({
   onPrint,
 }: CardFullscreenModalProps) {
   const [isEditing, setIsEditing] = useState(initialEditMode);
+  const [draftCard, setDraftCard] = useState<VisitorCard | null>(null);
 
   useEffect(() => {
     setIsEditing(initialEditMode);
@@ -115,7 +116,7 @@ export function CardFullscreenModal({
         {isEditing ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div className="lg:col-span-5 space-y-4">
-              <TcgPitchCard card={card} mode="preview" />
+              <TcgPitchCard card={draftCard?.id === card.id ? draftCard : card} mode="preview" />
             </div>
 
             <div className="lg:col-span-7">
@@ -123,6 +124,7 @@ export function CardFullscreenModal({
                 card={card}
                 onSave={handleSave}
                 onCancel={() => setIsEditing(false)}
+                onPreview={setDraftCard}
               />
             </div>
           </div>
