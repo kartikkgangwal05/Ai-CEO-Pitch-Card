@@ -11,6 +11,8 @@ interface HistoryTabProps {
   cards: VisitorCard[];
   loading: boolean;
   error: string | null;
+  /** True when the central history could not be reached and this device's copy is shown. */
+  offline?: boolean;
   onShow: (card: VisitorCard) => void;
   onPrint: (card: VisitorCard) => void;
   onDelete: (card: VisitorCard) => void;
@@ -26,7 +28,7 @@ function formatWhen(ms: number) {
   return new Date(ms).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-export function HistoryTab({ cards, loading, error, onShow, onPrint, onDelete, onImported }: HistoryTabProps) {
+export function HistoryTab({ cards, loading, error, offline = false, onShow, onPrint, onDelete, onImported }: HistoryTabProps) {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'cards' | 'photos'>('cards');
   const [photo, setPhoto] = useState<VisitorCard | null>(null);
@@ -43,7 +45,7 @@ export function HistoryTab({ cards, loading, error, onShow, onPrint, onDelete, o
   const withPhotos = filtered.filter((c) => c.capturedPhotoUrl || c.aiCharacterUrl);
 
   const handleExport = async () => {
-    const blob = await exportHistoryJson();
+    const blob = await exportHistoryJson(cards);
     downloadBlob(blob, `power-card-history-${new Date().toISOString().slice(0, 10)}.json`);
   };
 
@@ -63,7 +65,7 @@ export function HistoryTab({ cards, loading, error, onShow, onPrint, onDelete, o
         <div>
           <h2 className="text-lg font-bold text-white">Card History · {cards.length} saved</h2>
           <p className="text-xs text-sky-200/85 mt-0.5">
-            Every card and photo made on this device is saved here. Tap a card to show it full screen.
+            Shared by every booth device and updated every 30 seconds. Tap a card to show it full screen.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -130,6 +132,12 @@ export function HistoryTab({ cards, loading, error, onShow, onPrint, onDelete, o
         </div>
       </div>
 
+      {offline && (
+        <div role="status" className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-100">
+          Can't reach the central history right now, so this device's copy is shown. New cards upload when the connection is back.
+        </div>
+      )}
+
       {(notice || error) && (
         <div role="status" className="rounded-xl border border-sky-400/35 bg-sky-500/10 px-4 py-2.5 text-xs text-sky-100">
           {error ?? notice}
@@ -142,7 +150,7 @@ export function HistoryTab({ cards, loading, error, onShow, onPrint, onDelete, o
         <div className="mx-auto max-w-md rounded-2xl border border-dashed border-sky-400/40 bg-[#081226]/95 p-8 text-center">
           <p className="text-sm font-bold text-white">{cards.length === 0 ? 'No cards saved yet' : 'No cards match your search'}</p>
           <p className="mt-1 text-xs text-sky-200/80">
-            {cards.length === 0 ? 'Cards made in Booth Mode or Create Card show up here automatically.' : 'Try another name.'}
+            {cards.length === 0 ? 'Cards made on any device in Booth Mode or Create Card show up here automatically.' : 'Try another name.'}
           </p>
         </div>
       ) : view === 'cards' ? (

@@ -3,7 +3,7 @@ import { selectOnFocus } from '../utils/selectOnFocus';
 import { cleanMemberNo } from '../utils/foundingMember';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Camera, ImageUp, Settings2, Sparkles } from 'lucide-react';
-import type { CartoonStyleId, PersonaId, Specialisation } from '../types/pitch';
+import type { CartoonStyleId, PersonaId, Specialisation, VisitorCard } from '../types/pitch';
 import { ICON_PATHS, STREAMS, STREAM_ORDER } from '../utils/streams';
 import { renderMagicPortrait } from '../utils/magicPortrait';
 import { requestStreamPortrait, type PortraitResult } from '../utils/streamPortrait';
@@ -12,6 +12,7 @@ import { AttractHero } from './AttractHero';
 import { preloadSegmenter } from '../utils/segment';
 import { playTick } from '../utils/sfx';
 import { PowersStep, type Powers } from './PowersStep';
+import { RecentCardsWall } from './RecentCardsWall';
 
 /** What the booth hands back when the person taps "Create my card". */
 export interface BoothResult {
@@ -40,6 +41,9 @@ interface BoothFlowProps {
   paused?: boolean;
   /** Next free founding member number, shown pre-filled and editable. */
   suggestedMemberNo: string;
+  /** Central card history, newest first: shown as a wall under the start screen. */
+  recentCards?: VisitorCard[];
+  onShowCard?: (card: VisitorCard) => void;
 }
 
 type Step = 'attract' | 'name' | 'scan' | 'style' | 'powers';
@@ -101,7 +105,7 @@ const stepMotion = {
  * Full-screen sci-fi kiosk: attract → name → face scan → pick a filter on your own photo → powers.
  * The AI writes the title, intro and any stats left on "AI decides".
  */
-export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedMemberNo }: BoothFlowProps) {
+export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedMemberNo, recentCards = [], onShowCard }: BoothFlowProps) {
   const [step, setStep] = useState<Step>('attract');
   const [name, setName] = useState('');
   // null = not typed yet, so the next free number is shown
@@ -305,8 +309,16 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
       <main className="relative z-10 flex h-[calc(100%-56px)] items-center justify-center px-6">
         <AnimatePresence mode="wait">
           {step === 'attract' && (
-            <motion.section key="attract" {...stepMotion} className="h-full w-full">
-              <AttractHero onStart={() => go('name')} sampleArt={sampleArt} />
+            <motion.section key="attract" {...stepMotion} className="h-full w-full overflow-y-auto overflow-x-hidden">
+              <div className="relative flex min-h-full w-full flex-col">
+                <AttractHero onStart={() => go('name')} sampleArt={sampleArt} />
+                {recentCards.length > 0 && (
+                  <p className="relative z-10 pb-3 text-center font-mono-nums text-[10px] uppercase tracking-[0.35em] text-[#FFE7A8]/70">
+                    ↓ Scroll for recent cards
+                  </p>
+                )}
+              </div>
+              {onShowCard && <RecentCardsWall cards={recentCards} onShow={onShowCard} />}
             </motion.section>
           )}
 

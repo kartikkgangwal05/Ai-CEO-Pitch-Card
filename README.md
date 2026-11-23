@@ -13,9 +13,13 @@ Only the front of the card is printed (one card per page, page size 2.5 × 3.5 i
 - **Download card** saves a 750 × 1050 PNG (2.5 × 3.5 in at 300 dpi), so it also prints at exact size.
 - **Share on WhatsApp** opens the phone's share sheet with the card image (pick WhatsApp). On desktop
   browsers that cannot share files, it downloads the image and opens WhatsApp Web with the message.
-- **History** tab: every card made on this device, with its original photo and portrait, is saved in the
-  browser (IndexedDB) and survives reloads. Search, show full screen, print, download, share or delete old
-  cards, and use **Backup / Restore** to move the history to another device.
+- **Central history**: every card (with its original photo and portrait) is saved to a private Vercel Blob
+  store, so all booth devices share one history. The booth's start page shows a **Recent Power Cards** wall
+  below the hero (tap a card to show it full screen), and Studio → **History** lists them all with search,
+  print, download, share and Backup / Restore. Lists refresh every 30 seconds. If the network drops, cards
+  are kept on the device and upload automatically when it is back.
+- **Deleting** a card needs the staff PIN: set `STAFF_PIN` in the Vercel project settings (deleting is off
+  until it is set). The store's `BLOB_READ_WRITE_TOKEN` is added to the project by Vercel.
 
 ## Run
 
