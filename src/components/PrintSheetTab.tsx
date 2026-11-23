@@ -29,6 +29,9 @@ export function PrintSheetTab({
   const [modalInitialEdit, setModalInitialEdit] = useState(false);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  // Unsaved edits from the inline editor, shown live on the card.
+  const [draftCard, setDraftCard] = useState<VisitorCard | null>(null);
+  const shownCard = (isInlineEditing && draftCard?.id === activeCard?.id ? draftCard : null) ?? activeCard;
 
   const handlePrint = () => {
     window.print();
@@ -183,7 +186,7 @@ export function PrintSheetTab({
                   aria-label={`Open full-screen preview for ${activeCard.name} front card`}
                   className="group relative block p-1.5 border border-dashed border-sky-400/50 hover:border-[#00D4FF] rounded-xl bg-white/5 transition-all hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-[#00D4FF] cursor-pointer text-left"
                 >
-                  <TcgPitchCard card={activeCard} mode="print" />
+                  <TcgPitchCard card={shownCard ?? activeCard} mode="print" />
                   <span className="mt-1.5 inline-flex items-center justify-center gap-1 w-full text-[10px] font-semibold text-sky-300 group-hover:text-[#00D4FF]">
                     <Maximize2 className="w-3 h-3" aria-hidden="true" />
                     <span>Click card for full-screen preview</span>
@@ -213,6 +216,7 @@ export function PrintSheetTab({
               card={activeCard}
               onSave={handleSaveCard}
               onCancel={() => setIsInlineEditing(false)}
+              onPreview={setDraftCard}
             />
           </div>
         )}

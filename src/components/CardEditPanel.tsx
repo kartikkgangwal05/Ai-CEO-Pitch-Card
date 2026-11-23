@@ -1,16 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { NAME_FONT_OPTIONS } from '../utils/nameFonts';
 import { selectOnFocus } from '../utils/selectOnFocus';
 import { cleanMemberNo, memberNo } from '../utils/foundingMember';
-import { Check, Sparkles, X } from 'lucide-react';
+import { Check, Loader2, Sparkles, Wand2, X } from 'lucide-react';
 import type {
+  NameFontId,
   Specialisation,
-  StickerFontId,
   VisitorCard,
   VisitorType,
 } from '../types/pitch';
 import {
   SPECIALISATIONS,
-  STICKER_FONT_OPTIONS,
   VISITOR_TYPES,
   generateUniqueMotivationalLine,
   oneWord,
@@ -20,16 +20,27 @@ interface CardEditPanelProps {
   card: VisitorCard;
   onSave: (updated: VisitorCard) => void;
   onCancel: () => void;
+  /** Called with the edited card on every change, so the card beside the editor updates live. */
+  onPreview?: (draft: VisitorCard | null) => void;
 }
 
-export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
+const RESTYLES = [
+  { id: 'funnier', label: 'Funnier' },
+  { id: 'inspiring', label: 'Inspiring' },
+  { id: 'poetic', label: 'Poetic' },
+  { id: 'rhyme', label: 'Rhyming' },
+  { id: 'shorter', label: 'Shorter' },
+  { id: 'bollywood', label: 'Bollywood' },
+] as const;
+
+export function CardEditPanel({ card, onSave, onCancel, onPreview }: CardEditPanelProps) {
   const [visitorType, setVisitorType] = useState<VisitorType>(card.visitorType);
   const [name, setName] = useState(card.name);
   const [foundingMemberNo, setFoundingMemberNo] = useState(memberNo(card));
   const [currentPosition, setCurrentPosition] = useState(card.currentPosition);
   const [specialisation, setSpecialisation] = useState<Specialisation>(card.specialisation);
   const [dreamRole, setDreamRole] = useState(card.dreamRole);
-  const [stickerFont, setStickerFont] = useState<StickerFontId>(card.stickerFont);
+  const [nameFont, setNameFont] = useState<NameFontId>(card.nameFont ?? 'theme');
   const [tagline, setTagline] = useState(card.tagline);
   const [strength1, setStrength1] = useState(card.strength1);
   const [title, setTitle] = useState(card.title);
@@ -38,6 +49,7 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
   const [weakness, setWeakness] = useState(card.weakness);
   const [motivationalLine, setMotivationalLine] = useState(card.motivationalLine);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [restyling, setRestyling] = useState<string | null>(null);
 
   useEffect(() => {
     setVisitorType(card.visitorType);
@@ -46,7 +58,7 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
     setCurrentPosition(card.currentPosition);
     setSpecialisation(card.specialisation);
     setDreamRole(card.dreamRole);
-    setStickerFont(card.stickerFont);
+    setNameFont(card.nameFont ?? 'theme');
     setTagline(card.tagline);
     setStrength1(card.strength1);
     setTitle(card.title);
@@ -70,6 +82,54 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
     setMotivationalLine(line);
   };
 
+  const draft = useMemo<VisitorCard>(
+    () => ({
+      ...card,
+      visitorType,
+      name: name.trim() || card.name,
+      foundingMemberNo: cleanMemberNo(foundingMemberNo).trim() || memberNo(card),
+      currentPosition: currentPosition.trim(),
+      specialisation,
+      dreamRole: dreamRole.trim(),
+      nameFont,
+      tagline: tagline.trim() || card.tagline,
+      title: title.trim() || card.title,
+      intro: intro.trim() || card.intro,
+      strength1: oneWord(strength1, card.strength1),
+      strength2: '',
+      weakness: oneWord(weakness, card.weakness),
+      hobby: oneWord(hobby, card.hobby),
+      motivationalLine: motivationalLine.trim() || card.motivationalLine,
+      linkedin_headline: title.trim() || card.title,
+      pitch: intro.trim() || card.intro,
+    }),
+    [card, visitorType, name, foundingMemberNo, currentPosition, specialisation, dreamRole, nameFont, tagline, title, intro, strength1, weakness, hobby, motivationalLine]
+  );
+
+  useEffect(() => {
+    onPreview?.(draft);
+  }, [draft, onPreview]);
+  useEffect(() => () => onPreview?.(null), [onPreview]);
+
+  const handleRestyle = async (style: string) => {
+    setRestyling(style);
+    setErrorMsg(null);
+    try {
+      const res = await fetch('/api/restyle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: intro || card.intro, name: name || card.name, title, stream: specialisation, style }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { intro?: string; error?: string };
+      if (!res.ok || !payload.intro) throw new Error(payload.error ?? `HTTP ${res.status}`);
+      setIntro(payload.intro);
+    } catch (err) {
+      setErrorMsg(`AI restyle failed: ${err instanceof Error ? err.message : 'try again'}.`);
+    } finally {
+      setRestyling(null);
+    }
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (name.trim().length < 2) {
@@ -81,26 +141,7 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
       return;
     }
 
-    onSave({
-      ...card,
-      visitorType,
-      name: name.trim(),
-      foundingMemberNo: cleanMemberNo(foundingMemberNo).trim() || memberNo(card),
-      currentPosition: currentPosition.trim(),
-      specialisation,
-      dreamRole: dreamRole.trim(),
-      stickerFont,
-      tagline: tagline.trim() || card.tagline,
-      title: title.trim(),
-      intro: intro.trim(),
-      strength1: oneWord(strength1, card.strength1),
-      strength2: '',
-      weakness: oneWord(weakness, card.weakness),
-      hobby: oneWord(hobby, card.hobby),
-      motivationalLine: motivationalLine.trim() || card.motivationalLine,
-      linkedin_headline: title.trim(),
-      pitch: intro.trim(),
-    });
+    onSave(draft);
   };
 
   const inputClass =
@@ -239,19 +280,17 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
         </div>
       </div>
 
-      {/* Back Sticker Font Selector */}
+      {/* Name font: changes the holder's name on the card front */}
       <div>
-        <span className="block text-[11px] font-medium text-sky-200 mb-1.5">
-          Back Sticker Name Font
-        </span>
+        <span className="block text-[11px] font-medium text-sky-200 mb-1.5">Name Font</span>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {STICKER_FONT_OPTIONS.map((font) => {
-            const active = stickerFont === font.id;
+          {NAME_FONT_OPTIONS.map((font) => {
+            const active = nameFont === font.id;
             return (
               <button
                 key={font.id}
                 type="button"
-                onClick={() => setStickerFont(font.id)}
+                onClick={() => setNameFont(font.id)}
                 aria-pressed={active}
                 className={`px-2 py-1.5 rounded-lg border text-left cursor-pointer ${
                   active
@@ -259,7 +298,9 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
                     : 'bg-[#040A17] text-white border-sky-400/25 hover:border-sky-300'
                 }`}
               >
-                <span className={`block text-xs leading-tight ${font.className}`}>Aa</span>
+                <span className="block truncate text-sm leading-tight" style={font.style}>
+                  {(name.trim().split(/\s+/)[0] || 'Name').slice(0, 10)}
+                </span>
                 <span className="block text-[10px] font-semibold mt-0.5 truncate">{font.label}</span>
               </button>
             );
@@ -283,7 +324,7 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
 
       <div>
         <label htmlFor="edit-card-intro" className="block text-[11px] font-medium text-sky-200 mb-1">
-          Two-line Intro
+          Card Quote (two lines)
         </label>
         <textarea
           id="edit-card-intro"
@@ -293,6 +334,23 @@ export function CardEditPanel({ card, onSave, onCancel }: CardEditPanelProps) {
           onChange={(e) => setIntro(e.target.value)}
           className={`${inputClass} resize-y leading-relaxed`}
         />
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-200">
+            <Wand2 className="w-3 h-3 text-[#00D4FF]" aria-hidden="true" /> Restyle with AI:
+          </span>
+          {RESTYLES.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              disabled={restyling !== null}
+              onClick={() => void handleRestyle(r.id)}
+              className="inline-flex items-center gap-1 rounded-full border border-sky-400/35 bg-[#040A17] px-2.5 py-1 text-[10px] font-semibold text-white hover:border-[#00D4FF] disabled:opacity-50 cursor-pointer"
+            >
+              {restyling === r.id && <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />}
+              {r.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

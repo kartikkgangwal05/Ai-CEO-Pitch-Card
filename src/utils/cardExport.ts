@@ -44,7 +44,7 @@ export async function renderCardNodeToPng(node: HTMLElement): Promise<Blob> {
   const width = node.offsetWidth || 240;
   const options = {
     pixelRatio: EXPORT_WIDTH_PX / width,
-    backgroundColor: '#ffffff',
+    // no background: everything outside the card's own edge stays transparent
     fontEmbedCSS: fontCss,
     cacheBust: false,
   };
