@@ -1,4 +1,5 @@
 import type { VisitorCard } from '../types/pitch';
+import { nameFontStyle } from '../utils/nameFonts';
 import { memberNo } from '../utils/foundingMember';
 import { getCharacterById } from '../utils/characters';
 import { TCG_THEMES, getPersona } from '../utils/pitch';
@@ -115,7 +116,7 @@ export function TcgPitchCard({ card, mode = 'preview' }: TcgPitchCardProps) {
                 isPrint ? 'text-[5.2px]' : 'text-[9.5px]'
               }`}
             >
-              {card.name}
+              <span style={nameFontStyle(card.nameFont)}>{card.name}</span>
               {card.currentPosition.trim() ? ` · ${card.currentPosition.trim()}` : ''}
             </p>
           </header>

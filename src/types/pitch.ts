@@ -47,6 +47,9 @@ export type PersonaId =
 
 export type StickerFontId = 'cartoon' | 'vinyl' | 'arcade' | 'futurist';
 
+/** Font for the card holder's name. 'theme' keeps the card design's own lettering. */
+export type NameFontId = 'theme' | 'decorative' | 'elegant' | 'cartoon' | 'vinyl' | 'arcade' | 'futurist';
+
 export type ResolvedCharacterId = Exclude<CharacterId, 'auto'>;
 
 export interface PitchInput {
@@ -64,6 +67,8 @@ export interface PitchInput {
   /** Card front design: classic neon TCG (default) or the ornate stream "magic academy" card. */
   design?: 'classic' | 'arcane';
   stickerFont: StickerFontId;
+  /** Font for the holder's name on the card front (picked in the card editor). */
+  nameFont?: NameFontId;
   strength1: string;
   strength2: string;
   weakness: string;

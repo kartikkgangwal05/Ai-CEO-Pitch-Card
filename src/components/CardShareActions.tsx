@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Loader2, MessageCircle } from 'lucide-react';
+import { IdCard, Loader2, MessageCircle } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
 import {
   canShareFiles,
@@ -119,7 +119,7 @@ export function CardShareActions({ card, className = '', size = 'normal' }: Card
           data-testid="download-card-btn"
           className={`${btn} border border-sky-400/50 bg-[#081226] text-white hover:bg-[#0D1E42]`}
         >
-          {busy === 'download' ? <Loader2 className={`${icon} animate-spin`} aria-hidden="true" /> : <Download className={icon} aria-hidden="true" />}
+          {busy === 'download' ? <Loader2 className={`${icon} animate-spin`} aria-hidden="true" /> : <IdCard className={icon} aria-hidden="true" />}
           <span>{compact ? 'Download' : 'Download card'}</span>
         </button>
         <button

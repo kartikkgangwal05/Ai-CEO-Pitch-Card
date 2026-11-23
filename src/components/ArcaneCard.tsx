@@ -1,4 +1,5 @@
 import { useId, type CSSProperties } from 'react';
+import { nameFontStyle } from '../utils/nameFonts';
 import { memberNo } from '../utils/foundingMember';
 import type { VisitorCard } from '../types/pitch';
 import { ICON_PATHS, STREAMS } from '../utils/streams';
@@ -293,8 +294,17 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
                 >
                   <p
                     data-testid="card-name"
-                    className="truncate uppercase"
-                    style={{ ...display, ...goldText, fontSize: firstName.length > 9 ? '1.35em' : '1.65em', fontWeight: 900, lineHeight: 1.05, letterSpacing: '0.03em' }}
+                    className="truncate"
+                    style={{
+                      ...display,
+                      textTransform: 'uppercase',
+                      fontWeight: 900,
+                      letterSpacing: '0.03em',
+                      ...nameFontStyle(card.nameFont),
+                      ...goldText,
+                      fontSize: firstName.length > 9 ? '1.35em' : '1.65em',
+                      lineHeight: 1.15,
+                    }}
                   >
                     {firstName}
                   </p>
