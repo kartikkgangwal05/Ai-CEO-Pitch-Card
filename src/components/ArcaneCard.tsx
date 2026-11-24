@@ -224,9 +224,19 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
             )}
             {/* Header */}
             <header className="relative z-10 text-center" style={{ marginTop: '0.25em' }}>
-              <span style={{ ...display, ...goldText, fontSize: '1.15em', fontWeight: 900, letterSpacing: '0.05em', lineHeight: 1 }}>
-                #DYPAICOE
-              </span>
+              <p
+                data-testid="card-college"
+                className="whitespace-nowrap uppercase"
+                style={{ ...display, ...goldText, fontSize: '0.92em', fontWeight: 900, letterSpacing: '0.04em', lineHeight: 1.05 }}
+              >
+                Dr. D. Y. Patil B-School
+              </p>
+              <p
+                className="whitespace-nowrap uppercase"
+                style={{ ...serif, color: t.light, fontSize: '0.54em', fontWeight: 800, letterSpacing: '0.16em', lineHeight: 1, marginTop: '0.3em', textShadow: '0 0.05em 0.15em #000' }}
+              >
+                AI – Centre of Excellence
+              </p>
               {memberNo(card) && (
                 <div className="flex justify-center" style={{ marginTop: '0.3em' }}>
                   <p
@@ -352,8 +362,6 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
                 lineHeight: 1.18,
                 padding: '0 0.6em',
                 marginTop: '0.25em',
-                // room for the seal at the bottom of the art
-                marginBottom: '3.6em',
                 fontWeight: 600,
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
@@ -364,23 +372,17 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
               {card.intro}
             </p>
 
-            {/* Bottom seal (original round academy seal with the stream icon) */}
-            <div className="absolute left-1/2 z-20 -translate-x-1/2" style={{ bottom: '0.45em', width: '1.6em', height: '1.6em' }}>
-              <svg viewBox="0 0 40 40" className="h-full w-full" aria-hidden="true">
-                <defs>
-                  <linearGradient id={`crest-${frameId}`} x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stopColor={g0} />
-                    <stop offset="0.5" stopColor={g1} />
-                    <stop offset="1" stopColor={g2} />
-                  </linearGradient>
-                </defs>
-                <circle cx="20" cy="20" r="18" fill={ink} stroke={`url(#crest-${frameId})`} strokeWidth="3" />
-                <circle cx="20" cy="20" r="13" fill="none" stroke={g1} strokeWidth="0.8" opacity="0.85" />
-                <g transform="translate(10.4 10.4) scale(0.8)">
-                  <path d={ICON_PATHS[t.icons[0]]} fill="none" stroke={g0} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                </g>
-              </svg>
+            {/* Permanent tagline, the same on every card */}
+            <div data-testid="card-tagline" className="relative z-10 text-center" style={{ marginTop: '0.45em', marginBottom: '0.55em' }}>
+              <div aria-hidden="true" className="mx-auto" style={{ height: '0.05em', width: '55%', marginBottom: '0.3em', background: `linear-gradient(90deg, transparent, ${g1}, transparent)` }} />
+              <p className="whitespace-nowrap uppercase" style={{ ...display, ...goldText, fontSize: '0.6em', fontWeight: 900, letterSpacing: '0.08em', lineHeight: 1.1 }}>
+                Founders of the Next Frontier
+              </p>
+              <p className="whitespace-nowrap italic" style={{ ...book, color: t.light, fontSize: '0.56em', fontWeight: 700, lineHeight: 1.1, marginTop: '0.2em', textShadow: '0 0.05em 0.15em #000' }}>
+                Turning AI Ambition into Enterprise Reality.
+              </p>
             </div>
+
           </div>
         </div>
         <OrnateFrame id={frameId} gold={t.frame} gem={t.glow} />
