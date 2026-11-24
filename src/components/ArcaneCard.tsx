@@ -227,18 +227,18 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
               <p
                 data-testid="card-college"
                 className="whitespace-nowrap uppercase"
-                style={{ ...display, ...goldText, fontSize: '0.92em', fontWeight: 900, letterSpacing: '0.04em', lineHeight: 1.05 }}
+                style={{ ...display, ...goldText, fontSize: '0.82em', fontWeight: 900, letterSpacing: '0.04em', lineHeight: 1.05 }}
               >
                 Dr. D. Y. Patil B-School
               </p>
               <p
                 className="whitespace-nowrap uppercase"
-                style={{ ...serif, color: t.light, fontSize: '0.54em', fontWeight: 800, letterSpacing: '0.16em', lineHeight: 1, marginTop: '0.3em', textShadow: '0 0.05em 0.15em #000' }}
+                style={{ ...serif, color: t.light, fontSize: '0.46em', fontWeight: 800, letterSpacing: '0.16em', lineHeight: 1, marginTop: '0.25em', textShadow: '0 0.05em 0.15em #000' }}
               >
                 AI – Centre of Excellence
               </p>
               {memberNo(card) && (
-                <div className="flex justify-center" style={{ marginTop: '0.3em' }}>
+                <div className="flex justify-center" style={{ marginTop: '0.25em' }}>
                   <p
                     data-testid="card-member-no"
                     className="uppercase whitespace-nowrap"
@@ -248,8 +248,8 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
                       background: `${ink}d9`,
                       border: `0.05em solid ${g1}`,
                       borderRadius: '0.3em',
-                      padding: '0.22em 0.6em 0.2em',
-                      fontSize: '0.56em',
+                      padding: '0.2em 0.55em 0.18em',
+                      fontSize: '0.48em',
                       fontWeight: 800,
                       letterSpacing: '0.12em',
                       lineHeight: 1,
@@ -280,7 +280,7 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
               aria-hidden="true"
               className="pointer-events-none absolute inset-0"
               style={{
-                background: `linear-gradient(180deg, ${ink}cc 0%, transparent 13%, transparent 52%, ${ink}b3 66%, ${ink}f2 80%, ${ink} 100%)`,
+                background: `linear-gradient(180deg, ${ink}b3 0%, transparent 10%, transparent 70%, ${ink}b3 79%, ${ink}f2 88%, ${ink} 100%)`,
               }}
             />
 
@@ -299,7 +299,7 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
                     borderRadius: '0.28em',
                     background: `linear-gradient(180deg, ${ink}f0, ${deep}f0 55%, ${ink}f0)`,
                     boxShadow: `inset 0 0 0 0.05em ${g2}, inset 0 0 0.8em ${t.glow}55`,
-                    padding: '0.3em 0.7em 0.38em',
+                    padding: '0.14em 0.6em 0.2em',
                   }}
                 >
                   <p
@@ -312,13 +312,13 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
                       letterSpacing: '0.03em',
                       ...nameFontStyle(card.nameFont),
                       ...goldText,
-                      fontSize: firstName.length > 9 ? '1.35em' : '1.65em',
+                      fontSize: firstName.length > 9 ? '1.1em' : '1.28em',
                       lineHeight: 1.15,
                     }}
                   >
                     {firstName}
                   </p>
-                  <div aria-hidden="true" className="mx-auto" style={{ height: '0.06em', width: '70%', margin: '0.18em auto 0.16em', background: `linear-gradient(90deg, transparent, ${g1}, transparent)` }} />
+                  <div aria-hidden="true" className="mx-auto" style={{ height: '0.06em', width: '70%', margin: '0.08em auto 0.07em', background: `linear-gradient(90deg, transparent, ${g1}, transparent)` }} />
                   <h3
                     data-testid="card-title"
                     className="truncate uppercase"
@@ -334,7 +334,7 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
             <dl
               data-testid="card-stats"
               className="relative z-10 flex items-center justify-center text-center"
-              style={{ ...serif, gap: '0.45em', marginTop: '0.45em', padding: '0 0.3em' }}
+              style={{ ...serif, gap: '0.45em', marginTop: '0.22em', padding: '0 0.3em' }}
             >
               {stats.map((word, i) => (
                 <div key={i} className="flex min-w-0 items-center" style={{ gap: '0.45em' }}>
@@ -342,7 +342,7 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
                   <dt className="sr-only">{['Strength', 'Weakness', 'Hobby'][i]}</dt>
                   <dd
                     className="truncate"
-                    style={{ color: t.light, fontSize: stats.some((w) => (w ?? '').length > 9) ? '0.6em' : '0.7em', fontWeight: 700, letterSpacing: '0.02em', textShadow: '0 0.05em 0.15em #000' }}
+                    style={{ color: t.light, fontSize: stats.some((w) => (w ?? '').length > 9) ? '0.5em' : '0.56em', fontWeight: 700, letterSpacing: '0.02em', textShadow: '0 0.05em 0.15em #000' }}
                   >
                     {word}
                   </dd>
@@ -350,7 +350,7 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
               ))}
             </dl>
 
-            {/* Intro (two-line clamp) */}
+            {/* Intro (at most two lines) */}
             <p
               data-testid="card-intro"
               className="relative z-10 text-center italic"
@@ -358,10 +358,10 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
                 ...book,
                 color: t.light,
                 opacity: 0.9,
-                fontSize: '0.56em',
+                fontSize: '0.44em',
                 lineHeight: 1.18,
-                padding: '0 0.6em',
-                marginTop: '0.25em',
+                padding: '0 0.8em',
+                marginTop: '0.12em',
                 fontWeight: 600,
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
@@ -373,12 +373,12 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
             </p>
 
             {/* Permanent tagline, the same on every card */}
-            <div data-testid="card-tagline" className="relative z-10 text-center" style={{ marginTop: '0.45em', marginBottom: '0.55em' }}>
-              <div aria-hidden="true" className="mx-auto" style={{ height: '0.05em', width: '55%', marginBottom: '0.3em', background: `linear-gradient(90deg, transparent, ${g1}, transparent)` }} />
-              <p className="whitespace-nowrap uppercase" style={{ ...display, ...goldText, fontSize: '0.6em', fontWeight: 900, letterSpacing: '0.08em', lineHeight: 1.1 }}>
+            <div data-testid="card-tagline" className="relative z-10 text-center" style={{ marginTop: '0.22em', marginBottom: '0.3em' }}>
+              <div aria-hidden="true" className="mx-auto" style={{ height: '0.05em', width: '45%', marginBottom: '0.16em', background: `linear-gradient(90deg, transparent, ${g1}, transparent)` }} />
+              <p className="whitespace-nowrap uppercase" style={{ ...display, ...goldText, fontSize: '0.48em', fontWeight: 900, letterSpacing: '0.08em', lineHeight: 1.1 }}>
                 Founders of the Next Frontier
               </p>
-              <p className="whitespace-nowrap italic" style={{ ...book, color: t.light, fontSize: '0.56em', fontWeight: 700, lineHeight: 1.1, marginTop: '0.2em', textShadow: '0 0.05em 0.15em #000' }}>
+              <p className="whitespace-nowrap italic" style={{ ...book, color: t.light, fontSize: '0.42em', fontWeight: 700, lineHeight: 1.1, marginTop: '0.08em', textShadow: '0 0.05em 0.15em #000' }}>
                 Turning AI Ambition into Enterprise Reality.
               </p>
             </div>
