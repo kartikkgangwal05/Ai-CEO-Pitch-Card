@@ -256,9 +256,6 @@ export function RevealStage({ card, warning, onClose, onPrint, onNext, nextLabel
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 120, damping: 16 }}
           >
-            <p className="text-center font-mono-nums text-[11px] uppercase tracking-[0.25em] text-sky-300/80">
-              Move your cursor over the card
-            </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
