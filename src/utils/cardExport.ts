@@ -41,18 +41,30 @@ export async function renderCardNodeToPng(node: HTMLElement): Promise<Blob> {
   await document.fonts?.ready;
   await waitForImages(node);
   const fontCss = await fontEmbedCss(node);
-  const width = node.offsetWidth || 240;
-  const options = {
-    pixelRatio: EXPORT_WIDTH_PX / width,
-    // no background: everything outside the card's own edge stays transparent
-    fontEmbedCSS: fontCss,
-    cacheBust: false,
-  };
-  // Safari often paints images only on the second pass.
-  if (isSafari) await toBlob(node, options).catch(() => null);
-  const blob = await toBlob(node, options);
-  if (!blob) throw new Error('Could not render the card image.');
-  return setPngDpi(blob, EXPORT_DPI);
+  // The theme card is sized off its own width, so it is laid out at the full 750 x 1050 px for the image.
+  // Scaling up a tiny 63.5 mm layout instead lets text wrap differently and get clipped.
+  const fullSize = node.dataset.design === 'arcane';
+  const prev = { width: node.style.width, height: node.style.height };
+  if (fullSize) {
+    node.style.width = `${EXPORT_WIDTH_PX}px`;
+    node.style.height = `${EXPORT_HEIGHT_PX}px`;
+  }
+  try {
+    const width = node.offsetWidth || 240;
+    const options = {
+      pixelRatio: EXPORT_WIDTH_PX / width,
+      // no background: everything outside the card's own edge stays transparent
+      fontEmbedCSS: fontCss,
+      cacheBust: false,
+    };
+    // Safari often paints images only on the second pass.
+    if (isSafari) await toBlob(node, options).catch(() => null);
+    const blob = await toBlob(node, options);
+    if (!blob) throw new Error('Could not render the card image.');
+    return setPngDpi(blob, EXPORT_DPI);
+  } finally {
+    if (fullSize) Object.assign(node.style, prev);
+  }
 }
 
 export function cardFileName(card: VisitorCard): string {
