@@ -87,6 +87,24 @@ function squareJpeg(source: CanvasImageSource, w: number, h: number, mirror: boo
   return canvas.toDataURL('image/jpeg', 0.95);
 }
 
+/** Uploaded photo file to the booth's square JPEG, cropped from near the top so the head stays in frame. */
+function fileToSquare(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      // Guest photos are often tall phone portraits with the face in the upper part.
+      resolve(squareJpeg(img, img.naturalWidth, img.naturalHeight, false, 0.2));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not read that image.'));
+    };
+    img.src = url;
+  });
+}
+
 function HudFrame({ children, className = '' }: { children: ReactNode; className?: string }) {
   const corner = 'absolute h-6 w-6 border-[#00D4FF]';
   return (
@@ -121,6 +139,9 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
   // Stable callback: an inline ref re-runs on every render and would pull focus back from the member field.
   const focusOnMount = useCallback((el: HTMLInputElement | null) => el?.focus({ preventScroll: true }), []);
   const [photo, setPhoto] = useState<string | null>(null);
+  // Guest card: a photo uploaded up front (from the header), used instead of the camera scan.
+  const [guestPhoto, setGuestPhoto] = useState<string | null>(null);
+  const guestFileRef = useRef<HTMLInputElement>(null);
   const [localPortrait, setLocalPortrait] = useState<string | null>(null);
   const [ai, setAi] = useState<{ status: 'idle' | 'working' | 'done'; image: string | null; error?: string | null; provider?: 'gemini' }>({ status: 'idle', image: null });
   const aiJob = useRef<Promise<PortraitResult> | null>(null);
@@ -193,6 +214,7 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
     setName('');
     setMemberNoInput(null);
     setPhoto(null);
+    setGuestPhoto(null);
     setLocalPortrait(null);
     setAi({ status: 'idle', image: null });
     aiJob.current = null;
@@ -203,6 +225,23 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
   const go = (next: Step) => {
     playTick(false);
     setStep(next);
+  };
+
+  // After the stream is chosen: a guest photo skips the camera, otherwise scan.
+  const afterStyle = () => {
+    if (guestPhoto) {
+      setPhoto(guestPhoto);
+      go('powers');
+    } else go('scan');
+  };
+
+  const startGuestCard = async (file?: File) => {
+    if (!file) return;
+    const square = await fileToSquare(file).catch(() => null);
+    if (!square) return;
+    reset();
+    setGuestPhoto(square);
+    go('name');
   };
 
   const create = async () => {
@@ -224,7 +263,7 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
       } else if (step === 'style') {
         const n = Number(e.key);
         if (n >= 1 && n <= STREAM_ORDER.length) setStream(STREAM_ORDER[n - 1]);
-        if (e.key === 'Enter') go('scan');
+        if (e.key === 'Enter') afterStyle();
         if (e.key === 'Escape') go('name');
       } else if (step === 'powers') {
         if (e.key === 'Enter') void create();
@@ -303,6 +342,26 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
               {geminiState === 'quota' ? '⚠ AI portraits paused · Gemini quota' : '○ AI portraits off'}
             </span>
           )}
+          <button
+            type="button"
+            data-testid="guest-card-btn"
+            onClick={() => guestFileRef.current?.click()}
+            title="Make a card for a guest from a photo"
+            className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/60 bg-amber-300/10 px-3 py-1.5 font-semibold text-amber-200 hover:border-amber-200 hover:text-white cursor-pointer"
+          >
+            <ImageUp className="h-3.5 w-3.5" aria-hidden="true" /> Guest card
+          </button>
+          <input
+            ref={guestFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            data-testid="guest-card-upload"
+            onChange={(e) => {
+              void startGuestCard(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
           {onOpenHistory && (
             <button
               type="button"
@@ -348,8 +407,14 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
                 if (name.trim().length >= 2 && memberNo.trim()) go('style');
               }}
             >
+              {guestPhoto && (
+                <div data-testid="guest-photo-ready" className="mb-6 flex items-center gap-3 rounded-full border border-amber-300/50 bg-amber-300/10 py-1.5 pl-1.5 pr-4 text-sm text-amber-100">
+                  <img src={guestPhoto} alt="" className="h-10 w-10 rounded-full object-cover" />
+                  Guest photo ready. Type the guest's name.
+                </div>
+              )}
               <p className="font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">01 // Identify</p>
-              <h2 className="mt-3 font-display text-4xl font-extrabold sm:text-5xl">What do we call you, legend?</h2>
+              <h2 className="mt-3 font-display text-4xl font-extrabold sm:text-5xl">{guestPhoto ? "What's the guest's name?" : 'What do we call you, legend?'}</h2>
               <HudFrame className="mt-10 w-full">
                 <input
                   ref={focusOnMount}
@@ -475,7 +540,7 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
                 <button type="button" onClick={() => go('name')} className="booth-ghost-btn">
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
                 </button>
-                <button type="button" onClick={() => go('scan')} className="booth-primary-btn">
+                <button type="button" onClick={afterStyle} className="booth-primary-btn">
                   <Camera className="h-4 w-4" aria-hidden="true" /> I am {theme.archetype.replace(/^The /, 'the ')}
                 </button>
               </div>
@@ -616,16 +681,7 @@ function ScanStep({
   });
 
   const handleFile = (file?: File) => {
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      // Guest photos are often tall phone portraits with the face in the upper part.
-      const dataUrl = squareJpeg(img, img.naturalWidth, img.naturalHeight, false, 0.2);
-      URL.revokeObjectURL(url);
-      onCaptured(dataUrl);
-    };
-    img.src = url;
+    if (file) void fileToSquare(file).then(onCaptured, () => {});
   };
 
   const readout = 'font-mono-nums text-[11px] uppercase tracking-[0.25em]';
