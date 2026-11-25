@@ -80,6 +80,14 @@ function OrnateFrame({ id, gold, gem }: { id: string; gold: [string, string, str
         </clipPath>
       </defs>
 
+      {/* solid coloured border filling the card to its straight outer edge (part of the card, so it is in downloads
+          and prints): a clean rounded rectangle that is easy to cut out with scissors */}
+      <path
+        d={`M6 0 H244 A6 6 0 0 1 250 6 V344 A6 6 0 0 1 244 350 H6 A6 6 0 0 1 0 344 V6 A6 6 0 0 1 6 0 Z ${outer}`}
+        fill={gem}
+        fillRule="evenodd"
+      />
+      <path d="M6 0.4 H244 A5.6 5.6 0 0 1 249.6 6 V344 A5.6 5.6 0 0 1 244 349.6 H6 A5.6 5.6 0 0 1 0.4 344 V6 A5.6 5.6 0 0 1 6 0.4 Z" fill="none" stroke="#000" strokeOpacity="0.35" strokeWidth="0.8" />
       {/* band: metal, engraving, bevels */}
       <path d={`${outer} ${inner}`} fill="#000" fillOpacity="0.55" fillRule="evenodd" transform="translate(0 0.8)" />
       <path d={`${outer} ${inner}`} fill={metal} fillRule="evenodd" />
