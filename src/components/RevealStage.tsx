@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { ArrowRight, Printer, Volume2, VolumeX, X } from 'lucide-react';
+import { ArrowRight, Printer, X } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
 import { TCG_THEMES } from '../utils/pitch';
-import { isMuted, playReveal, setMuted } from '../utils/sfx';
+import { playReveal } from '../utils/sfx';
 import { HoloTilt } from './HoloTilt';
 import { CardShareActions } from './CardShareActions';
 import { TcgPitchCard } from './TcgPitchCard';
@@ -40,7 +40,6 @@ function useFitScale() {
 export function RevealStage({ card, warning, onClose, onPrint, onNext, nextLabel = 'Next person' }: RevealStageProps) {
   const scale = useFitScale();
   const theme = TCG_THEMES[card.specialisation];
-  const [muted, setMutedState] = useState(isMuted);
   const [revealed, setRevealed] = useState(false);
   // Don't start the reveal until the portrait is decoded, so the card never appears half-drawn.
   const [ready, setReady] = useState(false);
@@ -102,12 +101,6 @@ export function RevealStage({ card, warning, onClose, onPrint, onNext, nextLabel
       window.clearTimeout(sound);
     };
   }, []);
-
-  const toggleMute = () => {
-    const next = !muted;
-    setMuted(next);
-    setMutedState(next);
-  };
 
   return createPortal(
     <motion.div
@@ -229,14 +222,6 @@ export function RevealStage({ card, warning, onClose, onPrint, onNext, nextLabel
 
       {/* Top controls */}
       <div className="absolute right-4 top-4 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={toggleMute}
-          aria-label={muted ? 'Unmute sound effects' : 'Mute sound effects'}
-          className="rounded-full border border-sky-400/40 bg-[#081226]/80 p-2.5 text-sky-100 hover:text-white cursor-pointer"
-        >
-          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-        </button>
         <button
           type="button"
           onClick={onClose}

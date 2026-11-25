@@ -2,10 +2,12 @@ import { getFontEmbedCSS, toBlob } from 'html-to-image';
 import { memberNo } from './foundingMember';
 import type { VisitorCard } from '../types/pitch';
 
-/** 2.5 x 3.5 in at 300 dpi: the downloaded PNG prints at exact playing-card size. */
-export const EXPORT_DPI = 300;
-export const EXPORT_WIDTH_PX = Math.round(2.5 * EXPORT_DPI); // 750
-export const EXPORT_HEIGHT_PX = Math.round(3.5 * EXPORT_DPI); // 1050
+/** 2.5 x 3.5 in at 600 dpi: the downloaded PNG prints at exact playing-card size and stays sharp when zoomed. */
+export const EXPORT_DPI = 600;
+export const EXPORT_WIDTH_PX = Math.round(2.5 * EXPORT_DPI); // 1500
+export const EXPORT_HEIGHT_PX = Math.round(3.5 * EXPORT_DPI); // 2100
+/** The theme card is laid out at this width, then drawn at 2x for the 1500 px image. */
+const LAYOUT_WIDTH_PX = 750;
 
 const isSafari =
   typeof navigator !== 'undefined' && /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
@@ -46,8 +48,8 @@ export async function renderCardNodeToPng(node: HTMLElement): Promise<Blob> {
   const fullSize = node.dataset.design === 'arcane';
   const prev = { width: node.style.width, height: node.style.height };
   if (fullSize) {
-    node.style.width = `${EXPORT_WIDTH_PX}px`;
-    node.style.height = `${EXPORT_HEIGHT_PX}px`;
+    node.style.width = `${LAYOUT_WIDTH_PX}px`;
+    node.style.height = `${(LAYOUT_WIDTH_PX * 3.5) / 2.5}px`;
   }
   try {
     const width = node.offsetWidth || 240;

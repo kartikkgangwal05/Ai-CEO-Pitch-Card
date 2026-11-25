@@ -78,6 +78,8 @@ export interface PitchInput {
   tagline: string;
   motivationalLine: string;
   tone: Tone;
+  /** Card title picked in the booth (preset or typed); empty means the AI writes one. */
+  cardTitle?: string;
   /** Founding member number typed by the booth team, printed on the card (e.g. "027"). */
   foundingMemberNo?: string;
 }

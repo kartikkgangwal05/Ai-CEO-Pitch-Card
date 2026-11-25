@@ -20,7 +20,7 @@ interface CardShareActionsProps {
 
 /**
  * "Download card" and "Share on WhatsApp". The card is rendered off-screen at print size
- * (63.5 x 88.9 mm) and saved as a 750 x 1050 PNG (2.5 x 3.5 in at 300 dpi).
+ * (63.5 x 88.9 mm) and saved as a 1500 x 2100 PNG (2.5 x 3.5 in at 600 dpi).
  */
 export function CardShareActions({ card, className = '', size = 'normal' }: CardShareActionsProps) {
   const [busy, setBusy] = useState<'download' | 'share' | null>(null);

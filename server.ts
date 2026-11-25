@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stylePreviewSvg } from './server/claudeArt.ts';
-import { registerHistoryRoutes } from './server/historyStore.ts';
+import { offloadLargeImage, registerHistoryRoutes } from './server/historyStore.ts';
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { STREAMS } from './src/utils/streams.ts';
 import { buildGeminiPrompt } from './server/portraitArt.ts';
@@ -150,14 +150,18 @@ async function geminiPortrait(ai: GoogleGenAI, photo: { mimeType: string; data: 
   for (const model of candidates) {
     if (Date.now() - started > 55_000) break;
     try {
-      const response = await Promise.race([
-        ai.models.generateContent({
-          model,
-          contents: { parts },
-          config: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '4:5' } },
-        }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Gemini timed out')), 60_000)),
-      ]);
+      // 2K output keeps the face sharp on the printed card; older models reject the size, so retry without it.
+      const call = (imageConfig: { aspectRatio: string; imageSize?: string }) =>
+        Promise.race([
+          ai.models.generateContent({ model, contents: { parts }, config: { responseModalities: ['IMAGE'], imageConfig } }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Gemini timed out')), 60_000)),
+        ]);
+      const response = await call({ aspectRatio: '4:5', imageSize: '2K' }).catch((err) => {
+        if (/imageSize|image_size|INVALID_ARGUMENT/i.test(err instanceof Error ? err.message : String(err))) {
+          return call({ aspectRatio: '4:5' });
+        }
+        throw err;
+      });
       for (const part of response.candidates?.[0]?.content?.parts ?? []) {
         if (part.inlineData?.data) {
           workingImageModel = model;
@@ -221,6 +225,7 @@ export async function createApp() {
       tagline: String(rawBody.tagline ?? ''),
       motivationalLine: String(rawBody.motivationalLine ?? ''),
       tone: rawBody.tone as PitchInput['tone'],
+      cardTitle: String(rawBody.cardTitle ?? '').trim().slice(0, 30),
     };
 
     const validationErrors = validatePitchInput(input);
@@ -255,6 +260,9 @@ export async function createApp() {
         typed('Strength', input.strength1),
         typed('Weakness', input.weakness),
         typed('Hobby', input.hobby),
+        input.cardTitle?.trim()
+          ? `Card title: "${input.cardTitle.trim().slice(0, 30)}" (chosen by the person: return exactly this title, and build the intro around it)`
+          : 'Card title: (not given, invent one)',
       ].join('\n');
 
       const response = await Promise.race([
@@ -269,7 +277,10 @@ export async function createApp() {
               type: Type.OBJECT,
               properties: {
                 title: { type: Type.STRING, description: 'Funny 2-4 word epithet, max 28 chars, no name.' },
-                intro: { type: Type.STRING, description: 'Exactly two short punchy sentences, 14-24 words total.' },
+                intro: {
+                  type: Type.STRING,
+                  description: 'Exactly two short sentences, 14-22 words total: the strength in action, then a witty twist on the weakness or hobby.',
+                },
                 strength: { type: Type.STRING, description: 'ONE word.' },
                 weakness: { type: Type.STRING, description: 'ONE word.' },
                 hobby: { type: Type.STRING, description: 'ONE word.' },
@@ -458,7 +469,7 @@ export async function createApp() {
       try {
         const { image, model } = await geminiPortrait(gemini, photo, stream);
         console.log(`[gemini] portrait for ${stream} with ${model} in ${Date.now() - started} ms`);
-        res.json({ image, provider: 'gemini' });
+        res.json({ image: await offloadLargeImage(image).catch(() => image), provider: 'gemini' });
         return;
       } catch (err) {
         const reason = explainGeminiError(err);

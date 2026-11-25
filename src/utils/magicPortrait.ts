@@ -669,36 +669,6 @@ function robe(ctx: CanvasRenderingContext2D, t: StreamTheme, b: Body) {
     }
   }
 
-  // round seal on the chest (original, not a shield)
-  const px = cx + s * 0.44;
-  const py = sy + s * 0.22;
-  const r = s * 0.1;
-  if (py < H * 0.85) {
-    ctx.save();
-    ctx.translate(px, py);
-    const sealG = ctx.createLinearGradient(0, -r, 0, r);
-    sealG.addColorStop(0, t.glow);
-    sealG.addColorStop(1, t.deep);
-    ctx.fillStyle = sealG;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = GOLD;
-    ctx.lineWidth = s * 0.016;
-    ctx.stroke();
-    ctx.strokeStyle = hexA('#000000', 0.4);
-    ctx.lineWidth = Math.max(1, s * 0.006);
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2);
-    ctx.stroke();
-    const sc = (r * 1.2) / 24;
-    ctx.scale(sc, sc);
-    ctx.translate(-12, -12);
-    ctx.strokeStyle = '#ffe7a8';
-    ctx.lineWidth = 2.6;
-    ctx.stroke(new Path2D(ICON_PATHS[t.icons[0]]));
-    ctx.restore();
-  }
   ctx.restore();
 }
 

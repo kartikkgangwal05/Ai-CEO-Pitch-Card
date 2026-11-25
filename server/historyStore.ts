@@ -86,6 +86,25 @@ async function saveCard(input: StoredCard): Promise<StoredCard> {
   return card;
 }
 
+/**
+ * Vercel caps a function response at 4.5 MB, so a large AI portrait is stored as a private blob and sent
+ * back as a link instead of inline data. Small images (or no blob store) come back unchanged.
+ */
+export async function offloadLargeImage(dataUrl: string, maxInline = 3_000_000): Promise<string> {
+  if (dataUrl.length <= maxInline || !configured()) return dataUrl;
+  const match = /^data:(image\/(png|jpe?g|webp));base64,(.+)$/.exec(dataUrl);
+  if (!match) return dataUrl;
+  const ext = match[2] === 'jpeg' ? 'jpg' : match[2];
+  const pathname = `${IMG_PREFIX}portrait-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+  await put(pathname, Buffer.from(match[3], 'base64'), {
+    access: 'private',
+    contentType: match[1],
+    allowOverwrite: true,
+    addRandomSuffix: false,
+  });
+  return `/api/history/image?p=${encodeURIComponent(pathname)}&v=1`;
+}
+
 async function deleteCard(id: string) {
   const imgs = await list({ prefix: `${IMG_PREFIX}${id}-` });
   await del([`${CARD_PREFIX}${id}.json`, ...imgs.blobs.map((b) => b.pathname)]);

@@ -29,7 +29,7 @@ export function squareJpeg(src: string, size: number): Promise<string> {
 /** Ask the server for the AI stream portrait (Gemini). Never throws. */
 export async function requestStreamPortrait(photo: string, stream: Specialisation): Promise<PortraitResult> {
   try {
-    const small = await squareJpeg(photo, 768);
+    const small = await squareJpeg(photo, 1024);
     const res = await fetch('/api/magic-portrait', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
