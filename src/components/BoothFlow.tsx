@@ -68,8 +68,11 @@ const SAMPLE_FILE: Record<Specialisation, string> = {
 /** AI-painted sample art per stream (generated once with scripts/generate-samples.ts). */
 export const sampleArt = (id: Specialisation) => `/samples/${SAMPLE_FILE[id]}.jpg`;
 
-/** Square, mirrored (selfie) JPEG from the live video or an uploaded image. */
-function squareJpeg(source: CanvasImageSource, w: number, h: number, mirror: boolean): string {
+/**
+ * Square, mirrored (selfie) JPEG from the live video or an uploaded image. `topBias` moves the crop of a
+ * tall photo towards the top (0 = top edge, 0.5 = centre), so the head stays in frame.
+ */
+function squareJpeg(source: CanvasImageSource, w: number, h: number, mirror: boolean, topBias = 0.5): string {
   const side = Math.min(w, h);
   const size = Math.min(1440, side);
   const canvas = document.createElement('canvas');
@@ -80,7 +83,7 @@ function squareJpeg(source: CanvasImageSource, w: number, h: number, mirror: boo
     ctx.translate(size, 0);
     ctx.scale(-1, 1);
   }
-  ctx.drawImage(source, (w - side) / 2, (h - side) / 2, side, side, 0, 0, size, size);
+  ctx.drawImage(source, (w - side) / 2, (h - side) * topBias, side, side, 0, 0, size, size);
   return canvas.toDataURL('image/jpeg', 0.95);
 }
 
@@ -617,7 +620,8 @@ function ScanStep({
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      const dataUrl = squareJpeg(img, img.naturalWidth, img.naturalHeight, false);
+      // Guest photos are often tall phone portraits with the face in the upper part.
+      const dataUrl = squareJpeg(img, img.naturalWidth, img.naturalHeight, false, 0.2);
       URL.revokeObjectURL(url);
       onCaptured(dataUrl);
     };
@@ -709,7 +713,7 @@ function ScanStep({
           <Camera className="h-5 w-5" aria-hidden="true" /> {countdown !== null ? 'Hold still…' : 'Scan me'}
         </motion.button>
         <button type="button" onClick={() => fileRef.current?.click()} className="booth-ghost-btn">
-          <ImageUp className="h-4 w-4" aria-hidden="true" /> Upload
+          <ImageUp className="h-4 w-4" aria-hidden="true" /> Upload guest photo
         </button>
       </div>
       <input
