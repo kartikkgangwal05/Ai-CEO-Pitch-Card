@@ -34,7 +34,8 @@ Never mock appearance, body, age, gender, religion, caste, ethnicity or anything
 Never reference Harry Potter or any franchise: no Hogwarts, Gryffindor, Slytherin, Ravenclaw, Hufflepuff, Muggle, Quidditch, Patronus, Horcrux, Sorting, Dumbledore, Voldemort, or named spells like Accio, Expelliarmus, Lumos. Keep any magic flavour original.
 Return ONLY valid JSON with:
 - title: a funny 2-4 word epithet like "The Spreadsheet Sorcerer" or "Captain Snooze Button", max 28 characters, never containing the person's name.
-- intro: exactly two short sentences, 14-24 words in total, punchy, in the voice of a trading-card description. Never use he/she/him/her: use the first name or "they", because you cannot know how the person identifies.
+- intro: exactly two short sentences, 14-22 words in total, in the voice of a premium trading-card description. Build it from the person's own details: sentence one shows their strength in action in the world of their title and stream; sentence two lands a witty, affectionate twist on their weakness or hobby. Be specific and fresh: vivid verbs, one clever image, a punchline that makes them smile. Avoid clichés and filler such as "flick of their wand", "unleash", "journey", "passion", "game-changer", "secret weapon". Never use he/she/him/her: use the first name or "they", because you cannot know how the person identifies.
+- If a card title is given, return exactly that title.
 - strength, weakness, hobby: EXACTLY ONE WORD each (no spaces or hyphens), max 12 characters, capitalised, funny and specific to the facts when possible. If the user supplied a word for one of them, use that word.
 - power: an integer from 60 to 99.`;
 
@@ -790,7 +791,7 @@ export function buildFallbackPitch(input: PitchInput, salt = 0): PitchResult {
     generateUniqueMotivationalLine({ ...input, dreamRole: effectiveDreamRole }, salt);
 
   return {
-    title: fun.title,
+    title: clampText(input.cardTitle, 30) || fun.title,
     intro: fun.intro,
     hobby: fun.hobby,
     // pitch + headline stay populated so the Say It tab and QR text keep working.
@@ -842,7 +843,7 @@ export function normalizePitchResponse(raw: unknown, input: PitchInput, salt = 0
     return fallback;
   }
   const obj = raw as Record<string, unknown>;
-  const title = clampText(obj.title, 30);
+  const title = clampText(input.cardTitle, 30) || clampText(obj.title, 30);
   const intro = clampText(obj.intro, 170);
   if (!title || !intro) {
     return fallback;

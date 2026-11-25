@@ -212,6 +212,20 @@ async function saveCard(input) {
   });
   return card;
 }
+async function offloadLargeImage(dataUrl, maxInline = 3e6) {
+  if (dataUrl.length <= maxInline || !configured()) return dataUrl;
+  const match = /^data:(image\/(png|jpe?g|webp));base64,(.+)$/.exec(dataUrl);
+  if (!match) return dataUrl;
+  const ext = match[2] === "jpeg" ? "jpg" : match[2];
+  const pathname = `${IMG_PREFIX}portrait-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+  await put(pathname, Buffer.from(match[3], "base64"), {
+    access: "private",
+    contentType: match[1],
+    allowOverwrite: true,
+    addRandomSuffix: false
+  });
+  return `/api/history/image?p=${encodeURIComponent(pathname)}&v=1`;
+}
 async function deleteCard(id) {
   const imgs = await list({ prefix: `${IMG_PREFIX}${id}-` });
   await del([`${CARD_PREFIX}${id}.json`, ...imgs.blobs.map((b) => b.pathname)]);
@@ -420,8 +434,11 @@ function artBrief(stream, subject, campusImage) {
 function buildGeminiPrompt(stream) {
   return [
     "Create a new image. The first attached image is the person; the second attached image is the campus building.",
+    "MOST IMPORTANT: keep the face from the first image exactly as it is. Same face shape, jawline, forehead, eyes (shape, size, spacing, colour), eyebrows, nose, lips, ears, skin tone and texture, moles or marks, age, hairline and hairstyle, facial hair and glasses.",
+    "Do not beautify, slim, smooth, lighten or darken the skin, de-age, change the expression or make the face more symmetrical. Friends and family must recognise the person at first glance.",
+    "Only the clothing, pose of the hand, lighting, effects and background change.",
     artBrief(stream, "the exact person in the first image", "the second image"),
-    "Preserve the person's actual facial identity, facial structure, hairstyle, skin tone, glasses, beard and natural appearance exactly; they must be instantly recognisable as the same real person.",
+    "Show the face large and in sharp focus, lit from the front, at the same angle as in the first image.",
     "Portrait orientation."
   ].join(" ");
 }
@@ -447,7 +464,8 @@ Never mock appearance, body, age, gender, religion, caste, ethnicity or anything
 Never reference Harry Potter or any franchise: no Hogwarts, Gryffindor, Slytherin, Ravenclaw, Hufflepuff, Muggle, Quidditch, Patronus, Horcrux, Sorting, Dumbledore, Voldemort, or named spells like Accio, Expelliarmus, Lumos. Keep any magic flavour original.
 Return ONLY valid JSON with:
 - title: a funny 2-4 word epithet like "The Spreadsheet Sorcerer" or "Captain Snooze Button", max 28 characters, never containing the person's name.
-- intro: exactly two short sentences, 14-24 words in total, punchy, in the voice of a trading-card description. Never use he/she/him/her: use the first name or "they", because you cannot know how the person identifies.
+- intro: exactly two short sentences, 14-22 words in total, in the voice of a premium trading-card description. Build it from the person's own details: sentence one shows their strength in action in the world of their title and stream; sentence two lands a witty, affectionate twist on their weakness or hobby. Be specific and fresh: vivid verbs, one clever image, a punchline that makes them smile. Avoid clich\xE9s and filler such as "flick of their wand", "unleash", "journey", "passion", "game-changer", "secret weapon". Never use he/she/him/her: use the first name or "they", because you cannot know how the person identifies.
+- If a card title is given, return exactly that title.
 - strength, weakness, hobby: EXACTLY ONE WORD each (no spaces or hyphens), max 12 characters, capitalised, funny and specific to the facts when possible. If the user supplied a word for one of them, use that word.
 - power: an integer from 60 to 99.`;
 var SPECIALISATION_KEYWORDS = {
@@ -865,7 +883,7 @@ function buildFallbackPitch(input, salt = 0) {
   const tagline = input.tagline.trim() || generateDefaultTagline({ ...input, dreamRole: effectiveDreamRole }, salt);
   const motivationalLine = input.motivationalLine.trim() || generateUniqueMotivationalLine({ ...input, dreamRole: effectiveDreamRole }, salt);
   return {
-    title: fun.title,
+    title: clampText(input.cardTitle, 30) || fun.title,
     intro: fun.intro,
     hobby: fun.hobby,
     // pitch + headline stay populated so the Say It tab and QR text keep working.
@@ -911,7 +929,7 @@ function normalizePitchResponse(raw, input, salt = 0) {
     return fallback;
   }
   const obj = raw;
-  const title = clampText(obj.title, 30);
+  const title = clampText(input.cardTitle, 30) || clampText(obj.title, 30);
   const intro = clampText(obj.intro, 170);
   if (!title || !intro) {
     return fallback;
@@ -1041,14 +1059,16 @@ async function geminiPortrait(ai, photo, stream) {
   for (const model of candidates) {
     if (Date.now() - started > 55e3) break;
     try {
-      const response = await Promise.race([
-        ai.models.generateContent({
-          model,
-          contents: { parts },
-          config: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "4:5" } }
-        }),
+      const call = (imageConfig) => Promise.race([
+        ai.models.generateContent({ model, contents: { parts }, config: { responseModalities: ["IMAGE"], imageConfig } }),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Gemini timed out")), 6e4))
       ]);
+      const response = await call({ aspectRatio: "4:5", imageSize: "2K" }).catch((err) => {
+        if (/imageSize|image_size|INVALID_ARGUMENT/i.test(err instanceof Error ? err.message : String(err))) {
+          return call({ aspectRatio: "4:5" });
+        }
+        throw err;
+      });
       for (const part of response.candidates?.[0]?.content?.parts ?? []) {
         if (part.inlineData?.data) {
           workingImageModel = model;
@@ -1106,7 +1126,8 @@ async function createApp() {
       dreamRole: String(rawBody.dreamRole ?? ""),
       tagline: String(rawBody.tagline ?? ""),
       motivationalLine: String(rawBody.motivationalLine ?? ""),
-      tone: rawBody.tone
+      tone: rawBody.tone,
+      cardTitle: String(rawBody.cardTitle ?? "").trim().slice(0, 30)
     };
     const validationErrors = validatePitchInput(input);
     if (Object.keys(validationErrors).length > 0) {
@@ -1129,7 +1150,8 @@ async function createApp() {
         rawBody.design === "arcane" ? `Stream: ${input.specialisation}. This is a magic-academy card: the person is ${STREAMS[input.specialisation]?.flavor ?? "a business wizard"}. Make the title a funny wizard-style epithet tied to this stream (e.g. "The Spreadsheet Sorcerer", "Archmage of Appraisals"), and keep any invented stats relevant to the stream.` : `Stream: ${input.specialisation}.`,
         typed("Strength", input.strength1),
         typed("Weakness", input.weakness),
-        typed("Hobby", input.hobby)
+        typed("Hobby", input.hobby),
+        input.cardTitle?.trim() ? `Card title: "${input.cardTitle.trim().slice(0, 30)}" (chosen by the person: return exactly this title, and build the intro around it)` : "Card title: (not given, invent one)"
       ].join("\n");
       const response = await Promise.race([
         ai.models.generateContent({
@@ -1143,7 +1165,10 @@ async function createApp() {
               type: Type.OBJECT,
               properties: {
                 title: { type: Type.STRING, description: "Funny 2-4 word epithet, max 28 chars, no name." },
-                intro: { type: Type.STRING, description: "Exactly two short punchy sentences, 14-24 words total." },
+                intro: {
+                  type: Type.STRING,
+                  description: "Exactly two short sentences, 14-22 words total: the strength in action, then a witty twist on the weakness or hobby."
+                },
                 strength: { type: Type.STRING, description: "ONE word." },
                 weakness: { type: Type.STRING, description: "ONE word." },
                 hobby: { type: Type.STRING, description: "ONE word." },
@@ -1307,7 +1332,7 @@ async function createApp() {
       try {
         const { image, model } = await geminiPortrait(gemini, photo, stream);
         console.log(`[gemini] portrait for ${stream} with ${model} in ${Date.now() - started} ms`);
-        res.json({ image, provider: "gemini" });
+        res.json({ image: await offloadLargeImage(image).catch(() => image), provider: "gemini" });
         return;
       } catch (err) {
         const reason = explainGeminiError(err);

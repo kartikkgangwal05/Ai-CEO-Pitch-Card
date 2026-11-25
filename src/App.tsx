@@ -515,6 +515,7 @@ export default function App() {
       strength1: result.strength,
       weakness: result.weakness,
       hobby: result.hobby,
+      cardTitle: result.title,
     };
     setInput(boothInput);
     setCharacterError(null);
@@ -861,6 +862,7 @@ export default function App() {
           recentCards={historyCards}
           onShowCard={showCard}
           onOpenStudio={() => setActiveTab('create')}
+          onOpenHistory={() => setActiveTab('history')}
           paused={isGenerating || revealCard !== null}
         />
       )}

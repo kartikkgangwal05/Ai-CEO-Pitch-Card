@@ -62,8 +62,11 @@ function artBrief(stream: Specialisation, subject: string, campusImage: string):
 export function buildGeminiPrompt(stream: Specialisation): string {
   return [
     'Create a new image. The first attached image is the person; the second attached image is the campus building.',
+    'MOST IMPORTANT: keep the face from the first image exactly as it is. Same face shape, jawline, forehead, eyes (shape, size, spacing, colour), eyebrows, nose, lips, ears, skin tone and texture, moles or marks, age, hairline and hairstyle, facial hair and glasses.',
+    'Do not beautify, slim, smooth, lighten or darken the skin, de-age, change the expression or make the face more symmetrical. Friends and family must recognise the person at first glance.',
+    'Only the clothing, pose of the hand, lighting, effects and background change.',
     artBrief(stream, 'the exact person in the first image', 'the second image'),
-    "Preserve the person's actual facial identity, facial structure, hairstyle, skin tone, glasses, beard and natural appearance exactly; they must be instantly recognisable as the same real person.",
+    'Show the face large and in sharp focus, lit from the front, at the same angle as in the first image.',
     'Portrait orientation.',
   ].join(' ');
 }

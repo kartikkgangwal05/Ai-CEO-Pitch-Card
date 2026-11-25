@@ -66,7 +66,7 @@ function shrinkImage(dataUrl: string, max = 1000): Promise<string> {
       c.width = Math.round(img.naturalWidth * scale);
       c.height = Math.round(img.naturalHeight * scale);
       c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
-      resolve(c.toDataURL('image/jpeg', 0.86));
+      resolve(c.toDataURL('image/jpeg', 0.9));
     };
     img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
@@ -76,8 +76,8 @@ function shrinkImage(dataUrl: string, max = 1000): Promise<string> {
 async function upload(card: VisitorCard): Promise<VisitorCard> {
   const body = {
     ...card,
-    capturedPhotoUrl: await shrinkImage(card.capturedPhotoUrl),
-    aiCharacterUrl: await shrinkImage(card.aiCharacterUrl),
+    capturedPhotoUrl: await shrinkImage(card.capturedPhotoUrl, 1200),
+    aiCharacterUrl: await shrinkImage(card.aiCharacterUrl, 1800),
   };
   const res = await fetch('/api/history', {
     method: 'POST',

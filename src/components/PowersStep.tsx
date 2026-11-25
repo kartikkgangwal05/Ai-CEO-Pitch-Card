@@ -11,9 +11,22 @@ export interface Powers {
   strength: string;
   weakness: string;
   hobby: string;
+  /** Card title: a preset, a custom one, or '' for the AI to write. */
+  title: string;
 }
 
-const ROWS: { key: keyof Powers; label: string; icon: string; options: string[] }[] = [
+/** Ready-made card titles: four for the chosen stream, then four that suit anyone. */
+const STREAM_TITLES: Record<Specialisation, string[]> = {
+  HR: ['The Talent Whisperer', 'Guardian of Culture', 'The People Alchemist', 'Keeper of Teams'],
+  'Business Analytics': ['The Data Sorcerer', 'Oracle of Insights', 'The Dashboard Wizard', 'Master of Metrics'],
+  Finance: ['The Market Oracle', 'Alchemist of Assets', 'The Profit Prophet', 'Wizard of Wealth'],
+  Marketing: ['The Brand Alchemist', 'The Viral Conjurer', 'Archmage of Attention', 'The Hype Weaver'],
+  'Executive Leadership': ['The Visionary Captain', 'Boardroom Sovereign', 'Archmage of Strategy', 'The Deal Commander'],
+};
+const ANY_TITLES = ['The Trailblazer', 'The Game Changer', 'The Idea Machine', 'The Unstoppable Force'];
+const TITLE_MAX = 28;
+
+const ROWS: { key: Exclude<keyof Powers, 'title'>; label: string; icon: string; options: string[] }[] = [
   {
     key: 'strength',
     label: 'Strength',
@@ -74,7 +87,7 @@ function buildPreviewCard(
     stickerFont: 'cartoon',
     dreamRole: '',
     tone: 'Confident',
-    title: stream ? STREAMS[stream].archetype : personaId !== 'none' ? `The ${persona.label} of ???` : 'Title forging…',
+    title: powers.title || (stream ? STREAMS[stream].archetype : personaId !== 'none' ? `The ${persona.label} of ???` : 'Title forging…'),
     intro: 'Your two-line legend is written by AI the moment you are scanned. Stand by for greatness.',
     hobby: powers.hobby || '🎲 AI',
     pitch: '',
@@ -97,6 +110,14 @@ function buildPreviewCard(
 export function PowersStep({ name, styleId, personaId, powers, onChange, previewUrl, stream, previewSlot }: PowersStepProps) {
   const [customFor, setCustomFor] = useState<keyof Powers | null>(null);
   const [customText, setCustomText] = useState('');
+  const [titleCustom, setTitleCustom] = useState<string | null>(null);
+  const titleOptions = [...(stream ? STREAM_TITLES[stream] : []), ...ANY_TITLES];
+  const titleIsCustom = powers.title !== AI_WORD && !titleOptions.includes(powers.title);
+  const commitTitle = () => {
+    const t = (titleCustom ?? '').replace(/\s+/g, ' ').trim().slice(0, TITLE_MAX);
+    if (t) set('title', t);
+    setTitleCustom(null);
+  };
 
   const set = (key: keyof Powers, value: string) => {
     playTick(false);
@@ -150,6 +171,43 @@ export function PowersStep({ name, styleId, personaId, powers, onChange, preview
       </motion.div>
 
       <div className="w-full max-w-2xl space-y-5">
+        <div>
+          <p className="mb-2 font-mono-nums text-[11px] uppercase tracking-[0.3em] text-sky-300/80">
+            <span aria-hidden="true">🏷️</span> Card title
+            <span className="ml-2 text-white normal-case tracking-normal">{powers.title || 'AI writes it'}</span>
+          </p>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Card title">
+            <button type="button" data-testid="power-title-ai" onClick={() => set('title', AI_WORD)} aria-pressed={powers.title === AI_WORD} className={chip(powers.title === AI_WORD)}>
+              ✨ AI writes it
+            </button>
+            {titleOptions.map((opt) => (
+              <button key={opt} type="button" onClick={() => set('title', opt)} aria-pressed={powers.title === opt} className={chip(powers.title === opt)}>
+                {opt}
+              </button>
+            ))}
+            {titleCustom !== null ? (
+              <input
+                ref={(el) => el?.focus({ preventScroll: true })}
+                value={titleCustom}
+                onChange={(e) => setTitleCustom(e.target.value.slice(0, TITLE_MAX))}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter') commitTitle();
+                  if (e.key === 'Escape') setTitleCustom(null);
+                }}
+                placeholder="Your own title"
+                aria-label="Custom card title"
+                maxLength={TITLE_MAX}
+                className="w-52 rounded-full border border-[#00D4FF] bg-[#061026] px-3 py-1.5 text-[13px] text-white focus:outline-none"
+              />
+            ) : (
+              <button type="button" onClick={() => setTitleCustom(titleIsCustom ? powers.title : '')} aria-pressed={titleIsCustom} className={chip(titleIsCustom)}>
+                ✏️ {titleIsCustom ? powers.title : 'Custom'}
+              </button>
+            )}
+          </div>
+        </div>
         {ROWS.map((row) => {
           const value = powers[row.key];
           const isCustom = value !== AI_WORD && !row.options.includes(value);

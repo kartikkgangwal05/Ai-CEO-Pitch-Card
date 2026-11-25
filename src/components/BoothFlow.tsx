@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { selectOnFocus } from '../utils/selectOnFocus';
 import { cleanMemberNo } from '../utils/foundingMember';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, ArrowRight, Camera, ImageUp, Settings2, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, History, ImageUp, Settings2, Sparkles } from 'lucide-react';
 import type { CartoonStyleId, PersonaId, Specialisation, VisitorCard } from '../types/pitch';
 import { ICON_PATHS, STREAMS, STREAM_ORDER } from '../utils/streams';
 import { renderMagicPortrait } from '../utils/magicPortrait';
@@ -32,11 +32,15 @@ export interface BoothResult {
   strength: string;
   weakness: string;
   hobby: string;
+  /** Card title picked in the booth; empty string means the AI writes it. */
+  title: string;
 }
 
 interface BoothFlowProps {
   onComplete: (result: BoothResult) => void;
   onOpenStudio: () => void;
+  /** Opens Studio on the History tab (every card made so far). */
+  onOpenHistory?: () => void;
   /** True while the summoning/reveal overlays are on top: the booth ignores keys. */
   paused?: boolean;
   /** Next free founding member number, shown pre-filled and editable. */
@@ -67,7 +71,7 @@ export const sampleArt = (id: Specialisation) => `/samples/${SAMPLE_FILE[id]}.jp
 /** Square, mirrored (selfie) JPEG from the live video or an uploaded image. */
 function squareJpeg(source: CanvasImageSource, w: number, h: number, mirror: boolean): string {
   const side = Math.min(w, h);
-  const size = Math.min(1080, side);
+  const size = Math.min(1440, side);
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -77,7 +81,7 @@ function squareJpeg(source: CanvasImageSource, w: number, h: number, mirror: boo
     ctx.scale(-1, 1);
   }
   ctx.drawImage(source, (w - side) / 2, (h - side) / 2, side, side, 0, 0, size, size);
-  return canvas.toDataURL('image/jpeg', 0.92);
+  return canvas.toDataURL('image/jpeg', 0.95);
 }
 
 function HudFrame({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -105,7 +109,7 @@ const stepMotion = {
  * Full-screen sci-fi kiosk: attract → name → face scan → pick a filter on your own photo → powers.
  * The AI writes the title, intro and any stats left on "AI decides".
  */
-export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedMemberNo, recentCards = [], onShowCard }: BoothFlowProps) {
+export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = false, suggestedMemberNo, recentCards = [], onShowCard }: BoothFlowProps) {
   const [step, setStep] = useState<Step>('attract');
   const [name, setName] = useState('');
   // null = not typed yet, so the next free number is shown
@@ -121,7 +125,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
   const [stream, setStream] = useState<Specialisation>('Business Analytics');
   const styleId: CartoonStyleId = 'bold-toon';
   const personaId: PersonaId = 'none';
-  const [powers, setPowers] = useState<Powers>({ strength: '', weakness: '', hobby: '' });
+  const [powers, setPowers] = useState<Powers>({ strength: '', weakness: '', hobby: '', title: '' });
   const [creating, setCreating] = useState(false);
   const [aiOnline, setAiOnline] = useState<boolean | null>(null);
   const [geminiState, setGeminiState] = useState<'off' | 'quota' | 'ok' | null>(null);
@@ -189,7 +193,7 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
     setLocalPortrait(null);
     setAi({ status: 'idle', image: null });
     aiJob.current = null;
-    setPowers({ strength: '', weakness: '', hobby: '' });
+    setPowers({ strength: '', weakness: '', hobby: '', title: '' });
     setCreating(false);
   }, []);
 
@@ -295,6 +299,15 @@ export function BoothFlow({ onComplete, onOpenStudio, paused = false, suggestedM
             >
               {geminiState === 'quota' ? '⚠ AI portraits paused · Gemini quota' : '○ AI portraits off'}
             </span>
+          )}
+          {onOpenHistory && (
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 px-3 py-1.5 text-sky-300/80 hover:border-sky-300 hover:text-white cursor-pointer"
+            >
+              <History className="h-3.5 w-3.5" aria-hidden="true" /> History
+            </button>
           )}
           <button
             type="button"
@@ -537,7 +550,7 @@ function ScanStep({
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } },
+          video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1440 } },
           audio: false,
         });
         if (cancelled) {
