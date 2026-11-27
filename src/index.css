@@ -63,6 +63,11 @@
   margin: 10mm;
 }
 
+/* The ultra-HD print image is only ever shown on paper. */
+#hd-print {
+  display: none;
+}
+
 /* Print exactly one front card per page, at real playing-card size (2.5 x 3.5 in). */
 @page {
   size: 63.5mm 88.9mm;
@@ -95,6 +100,25 @@
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  /* Ultra-HD print: only the pre-rendered 1200 dpi card image is printed (see utils/hdPrint.ts). */
+  html.hd-print body > *:not(#hd-print) {
+    display: none !important;
+  }
+  html.hd-print #hd-print {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    width: 63.5mm;
+    height: 88.9mm;
+    margin: 0;
+    padding: 0;
+  }
+  html.hd-print #hd-print img {
+    display: block;
+    width: 63.5mm;
+    height: 88.9mm;
   }
 
   .print-only-pokemon-pair {

@@ -31,6 +31,7 @@ import {
 } from './utils/pitch';
 import { applyComicCartoonFilter } from './utils/cartoonize';
 import { applyPhotoFilter } from './utils/photoFilters';
+import { printHd } from './utils/hdPrint';
 import { deleteCardFromHistory, listHistory, saveCardToHistory, syncPending } from './utils/cardHistory';
 import { cleanMemberNo, nextMemberNo } from './utils/foundingMember';
 
@@ -146,8 +147,7 @@ export default function App() {
   useEffect(() => {
     if (!printCard) return;
     const t = window.setTimeout(() => {
-      window.print();
-      setPrintCard(null);
+      void printHd().finally(() => setPrintCard(null));
     }, 150);
     return () => window.clearTimeout(t);
   }, [printCard]);
@@ -804,7 +804,7 @@ export default function App() {
                 notice={notice}
                 queueCount={visitorQueue.length}
                 onRetryAi={currentCard ? () => void generateWithAi(input) : undefined}
-                onQuickPrint={() => window.print()}
+                onQuickPrint={() => void printHd()}
                 onShowcase={() => currentCard && setRevealCard(currentCard)}
                 onOpenSayIt={() => setActiveTab('say-it')}
                 onOpenPrint={() => setActiveTab('print')}
@@ -888,7 +888,7 @@ export default function App() {
               setRevealCard(null);
               setBrowsingReveal(false);
             }}
-            onPrint={() => window.print()}
+            onPrint={() => void printHd()}
             nextLabel={browsingReveal ? 'Back to cards' : undefined}
             onNext={() => {
               if (browsingReveal || activeTab === 'history') {

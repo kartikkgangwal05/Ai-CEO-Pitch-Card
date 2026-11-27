@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { printHd } from '../utils/hdPrint';
 import { memberNo } from '../utils/foundingMember';
 import { Maximize2, Pencil, Printer, Sparkles } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
@@ -37,7 +38,7 @@ export function PrintSheetTab({
   const shownCard = (isInlineEditing && draftCard?.id === activeCard?.id ? draftCard : null) ?? activeCard;
 
   const handlePrint = () => {
-    window.print();
+    void printHd();
   };
 
   const handleOpenFullscreen = (editMode = false) => {
