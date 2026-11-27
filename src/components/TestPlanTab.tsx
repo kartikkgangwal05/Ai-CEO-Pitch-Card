@@ -82,7 +82,7 @@ export function TestPlanTab({ currentCard, historyCount }: TestPlanTabProps) {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-[#00D4FF] mb-1">
             <ClipboardCheck className="w-4 h-4" aria-hidden="true" />
-            <span>#DYPAICoE Launch Verification · Students, Owners & Directors</span>
+            <span>#DYPBSAICoE Launch Verification · Students, Owners & Directors</span>
           </div>
           <h2 className="text-xl font-bold text-white">Booth Acceptance Test Plan</h2>
           <p className="text-sm text-sky-100/85 mt-1">

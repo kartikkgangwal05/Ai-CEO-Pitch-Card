@@ -934,13 +934,15 @@ export async function renderMagicPortrait(photoDataUrl: string, stream: Speciali
     ctx.restore();
 
     ribbons(ctx, t, body, 'back', rand);
-    if (body) hood(ctx, t, body);
+    // Leadership cards are for guests and faculty: they keep their own clothes (no hood, robe or tie).
+    const ownClothes = stream === 'Executive Leadership';
+    if (body && !ownClothes) hood(ctx, t, body);
 
     pctx.globalCompositeOperation = 'destination-in';
     pctx.drawImage(mask, 0, 0);
     ctx.drawImage(person, 0, 0);
 
-    if (body) {
+    if (body && !ownClothes) {
       clothesCover(ctx, mask, body);
       robe(ctx, t, body);
     }

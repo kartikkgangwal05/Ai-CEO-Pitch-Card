@@ -1,6 +1,6 @@
 {
   "name": "My Pitch Card",
-  "description": "90-second PGDM placement & VIP pitch card with camera-to-AI character generation, plain-text QR generator, voice coach, and 2.5x3.5 in (63.5x88.9 mm) collector card print booth for the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune.",
+  "description": "90-second PGDM placement & VIP pitch card with camera-to-AI character generation, plain-text QR generator, voice coach, and 2.5x3.5 in (63.5x88.9 mm) collector card print booth for the #DYPBSAICoE launch at Dr. D. Y. Patil B-School, Pune.",
   "requestFramePermissions": ["microphone", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

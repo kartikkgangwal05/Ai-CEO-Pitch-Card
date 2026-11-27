@@ -144,6 +144,50 @@ function stylePreviewSvg(styleId, seed = "Power Card") {
 // server/historyStore.ts
 import { Readable } from "node:stream";
 import { del, get, list, put } from "@vercel/blob";
+
+// server/sheetSync.ts
+function sheetConfigured() {
+  return Boolean(process.env.SHEETS_WEBHOOK_URL?.trim());
+}
+var str = (v) => typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "";
+function sheetRow(card) {
+  const typed = str(card.foundingMemberNo).replace(/^(no\.?|#)\s*/i, "");
+  const serial = typeof card.cardSerial === "number" && card.cardSerial > 0 ? String(card.cardSerial).padStart(3, "0") : "";
+  const created = typeof card.createdAt === "number" ? new Date(card.createdAt) : /* @__PURE__ */ new Date();
+  return {
+    id: str(card.id),
+    created: created.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+    memberNo: typed || serial,
+    name: str(card.name),
+    specialisation: str(card.specialisation),
+    visitorType: str(card.visitorType),
+    position: str(card.currentPosition),
+    title: str(card.title),
+    strength: str(card.strength1),
+    weakness: str(card.weakness),
+    hobby: str(card.hobby)
+  };
+}
+async function sendToSheet(cards) {
+  const url = process.env.SHEETS_WEBHOOK_URL?.trim();
+  if (!url || cards.length === 0) return false;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      // text/plain keeps Apps Script happy (no preflight); the body is JSON.
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ secret: process.env.SHEETS_SECRET?.trim() ?? "", rows: cards.map(sheetRow) }),
+      redirect: "follow",
+      signal: AbortSignal.timeout(8e3)
+    });
+    const reply = await res.json().catch(() => null);
+    return res.ok && reply?.ok === true;
+  } catch {
+    return false;
+  }
+}
+
+// server/historyStore.ts
 var CARD_PREFIX = "history/cards/";
 var IMG_PREFIX = "history/img/";
 var IMAGE_FIELDS = ["capturedPhotoUrl", "aiCharacterUrl"];
@@ -252,9 +296,26 @@ function registerHistoryRoutes(app) {
     }
     if (typeof card.createdAt !== "number") card.createdAt = Date.now();
     try {
-      res.json({ card: await saveCard(card) });
+      const saved = await saveCard(card);
+      await sendToSheet([saved]);
+      res.json({ card: saved });
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : "Could not save the card." });
+    }
+  });
+  app.post("/api/history/sheet-sync", async (_req, res) => {
+    if (!configured()) return notConfigured(res);
+    if (!sheetConfigured()) {
+      res.status(503).json({ error: "Google Sheet is not connected: set SHEETS_WEBHOOK_URL in the Vercel project settings." });
+      return;
+    }
+    try {
+      const cards = await listCards();
+      const ok = await sendToSheet(cards);
+      if (!ok) throw new Error("The Google Sheet did not accept the rows.");
+      res.json({ ok: true, count: cards.length });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : "Could not reach the Google Sheet." });
     }
   });
   app.delete("/api/history/:id", async (req, res) => {
@@ -415,12 +476,14 @@ var STREAM_LOOK = {
     symbols: "faint glowing stars and rising arrows"
   }
 };
+var keepsOwnClothes = (stream) => stream === "Executive Leadership";
 function artBrief(stream, subject, campusImage, faithful = false) {
   const look = STREAM_LOOK[stream] ?? STREAM_LOOK["Business Analytics"];
+  const ownClothes = faithful && keepsOwnClothes(stream);
   return [
     "Premium cinematic fantasy collectible trading-card artwork in a photorealistic style, like a high-end movie still with magical effects.",
     faithful ? `A half-body portrait of ${subject} in the centre, with the head, face angle and expression exactly as in the photo.` : `A half-body portrait of ${subject} in the exact centre, looking directly at the camera, straight-facing, confident.`,
-    `They wear an elegant black wizard robe with ${look.colour} lining and hood, a crisp white shirt and a plain solid ${look.colour} tie with no stripes.`,
+    ownClothes ? "They keep exactly the clothes they wear in the photo (same garments, colours and neckline): no robe, no cape, no tie, no costume added." : `They wear an elegant black wizard robe with ${look.colour} lining and hood, a crisp white shirt and a plain solid ${look.colour} tie with no stripes.`,
     `${look.prop}.`,
     `Behind one shoulder, ${look.spirit}, and around the character swirling ${look.colour} energy ribbons, glowing particles and ${look.symbols}.`,
     `Background: the building from ${campusImage}, the Dr. D. Y. Patil B-School PGDM campus, recreated at night in a dark, mysterious magical mood.`,
@@ -436,7 +499,7 @@ function buildGeminiPrompt(stream) {
     "Edit the first attached image, a real photo of a person. The second attached image is the campus building for the background.",
     "MOST IMPORTANT: this is a photo edit, not a new drawing. Keep the person's head, face and hair exactly as photographed, as if cut out of the original photo: same face shape, jawline, forehead, eyes (shape, size, spacing, colour), eyebrows, nose, lips, ears, skin tone and texture, moles or marks, age, hairline and hairstyle, facial hair, glasses and expression.",
     "Do not redraw, repaint, beautify, slim, smooth, sharpen into a different face, lighten or darken the skin, de-age, turn the head, change the expression or make the face more symmetrical. Friends and family must recognise the person instantly; if in doubt, change less.",
-    "Only the clothing below the neck, one raised hand, the magical effects, the lighting around the person and the background change.",
+    keepsOwnClothes(stream) ? "Keep their clothing exactly as photographed too. Only one raised hand, the magical effects, the lighting around the person and the background change." : "Only the clothing below the neck, one raised hand, the magical effects, the lighting around the person and the background change.",
     artBrief(stream, "the exact person in the first image", "the second image", true),
     "Keep the face large and in sharp focus.",
     "Portrait orientation."
@@ -458,7 +521,7 @@ var SPECIALISATIONS = [
   "Executive Leadership"
 ];
 var TONES = ["Confident", "Friendly", "Formal"];
-var EXACT_SYSTEM_PROMPT = `You write the text for funny, printable trading-style "power cards" handed out at the #DYPAICoE launch event.
+var EXACT_SYSTEM_PROMPT = `You write the text for funny, printable trading-style "power cards" handed out at the #DYPBSAICoE launch event.
 Tone: playful, witty, warm. Roast gently so the person laughs and wants to keep the card.
 Never mock appearance, body, age, gender, religion, caste, ethnicity or anything sensitive. No profanity.
 Never reference Harry Potter or any franchise: no Hogwarts, Gryffindor, Slytherin, Ravenclaw, Hufflepuff, Muggle, Quidditch, Patronus, Horcrux, Sorting, Dumbledore, Voldemort, or named spells like Accio, Expelliarmus, Lumos. Keep any magic flavour original.
@@ -727,7 +790,7 @@ var MOTIVATIONAL_TEMPLATES = [
   (role) => `Your insight is your edge; bring structured conviction to every ${role} conversation.`,
   (role, firstName) => `${firstName}, great ${role} leaders turn complex challenges into calm clarity.`,
   (role) => `Speak with proof, listen with intent, and build your signature in ${role}.`,
-  (role, firstName) => `Every conversation at #DYPAICoE sparks a bold chapter \u2014 lead forward, ${firstName}.`,
+  (role, firstName) => `Every conversation at #DYPBSAICoE sparks a bold chapter \u2014 lead forward, ${firstName}.`,
   (role) => `Discipline beats noise: let clarity and integrity power your ${role} impact.`,
   (role, firstName) => `${firstName}, pair curiosity with commercial rigor and the ${role} frontier is yours.`,
   (role) => `Real outcomes speak loudest \u2014 walk into every room ready to build.`,
@@ -1102,7 +1165,8 @@ async function createApp() {
       imageModel: getImageEngine() === "filter" ? "browser photo filter" : workingImageModel ?? imageModels[0] ?? null,
       aiConfigured: Boolean(getGeminiClient()),
       geminiConfigured: Boolean(getGeminiClient()),
-      geminiStatus: geminiStatus()
+      geminiStatus: geminiStatus(),
+      sheetConfigured: sheetConfigured()
     });
   });
   app.post("/api/pitch", async (req, res) => {

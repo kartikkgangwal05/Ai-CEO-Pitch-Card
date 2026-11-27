@@ -19,7 +19,7 @@ export function squareJpeg(src: string, size: number): Promise<string> {
       c.width = size;
       c.height = size;
       c.getContext('2d')!.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
-      resolve(c.toDataURL('image/jpeg', 0.9));
+      resolve(c.toDataURL('image/jpeg', 0.92));
     };
     img.onerror = () => reject(new Error('Could not read the photo.'));
     img.src = src;
@@ -29,7 +29,7 @@ export function squareJpeg(src: string, size: number): Promise<string> {
 /** Ask the server for the AI stream portrait (Gemini). Never throws. */
 export async function requestStreamPortrait(photo: string, stream: Specialisation): Promise<PortraitResult> {
   try {
-    const small = await squareJpeg(photo, 1024);
+    const small = await squareJpeg(photo, 1440);
     const res = await fetch('/api/magic-portrait', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
