@@ -38,8 +38,14 @@ async function waitForImages(node: HTMLElement) {
   );
 }
 
-/** Renders a mounted print-mode card node (63.5 x 88.9 mm) to a 750 x 1050 PNG tagged as 300 dpi. */
-export async function renderCardNodeToPng(node: HTMLElement): Promise<Blob> {
+/** Ultra-HD image used for printing: 2.5 x 3.5 in at 1200 dpi (3000 x 4200 px). */
+export const PRINT_DPI = 1200;
+
+/**
+ * Renders a mounted print-mode card node (63.5 x 88.9 mm) to a PNG `widthPx` wide (1500 px = 600 dpi by
+ * default), tagged with the matching dpi so it prints at exact card size.
+ */
+export async function renderCardNodeToPng(node: HTMLElement, widthPx = EXPORT_WIDTH_PX): Promise<Blob> {
   await document.fonts?.ready;
   await waitForImages(node);
   const fontCss = await fontEmbedCss(node);
@@ -54,16 +60,19 @@ export async function renderCardNodeToPng(node: HTMLElement): Promise<Blob> {
   try {
     const width = node.offsetWidth || 240;
     const options = {
-      pixelRatio: EXPORT_WIDTH_PX / width,
+      pixelRatio: widthPx / width,
       // no background: everything outside the card's own edge stays transparent
       fontEmbedCSS: fontCss,
       cacheBust: false,
+      // Saved cards' photos all live at /api/history/image?p=...; without the query in the cache key every
+      // card after the first would reuse the first person's photo.
+      includeQueryParams: true,
     };
     // Safari often paints images only on the second pass.
     if (isSafari) await toBlob(node, options).catch(() => null);
     const blob = await toBlob(node, options);
     if (!blob) throw new Error('Could not render the card image.');
-    return setPngDpi(blob, EXPORT_DPI);
+    return setPngDpi(blob, Math.round((widthPx / EXPORT_WIDTH_PX) * EXPORT_DPI));
   } finally {
     if (fullSize) Object.assign(node.style, prev);
   }
