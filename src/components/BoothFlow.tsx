@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { cardName } from '../utils/cardName';
 import { selectOnFocus } from '../utils/selectOnFocus';
 import { cleanMemberNo } from '../utils/foundingMember';
 import { AnimatePresence, motion } from 'motion/react';
@@ -282,7 +283,7 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
   const theme = themeFor(stream, leaderTheme);
-  const firstName = name.trim().split(/\s+/)[0];
+  const firstName = cardName(name);
 
   return (
     <div

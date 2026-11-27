@@ -170,7 +170,10 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
         filter: 'drop-shadow(0 0.06em 0.08em rgba(0,0,0,0.8))',
       };
   const stats = [card.strength1, card.weakness, card.hobby];
-  const firstName = card.name.trim().split(/\s+/)[0] || card.name;
+  // The full name as typed ("Dr. Somnath Kumar"), smaller for longer names so it fits on the plate.
+  const fullName = card.name.trim().replace(/\s+/g, ' ');
+  const n = fullName.length;
+  const nameSize = n <= 9 ? '1.28em' : n <= 12 ? '1.1em' : n <= 15 ? '0.95em' : n <= 19 ? '0.8em' : n <= 24 ? '0.68em' : '0.58em';
   const plate = 'polygon(4% 0, 96% 0, 100% 50%, 96% 100%, 4% 100%, 0 50%)';
   const titleSize = card.title.length <= 18 ? '0.86em' : card.title.length <= 24 ? '0.74em' : '0.62em';
   // useId keeps SVG gradient ids unique when the same card renders twice (e.g. App's hidden print copy and the
@@ -320,11 +323,11 @@ export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
                       letterSpacing: '0.03em',
                       ...nameFontStyle(card.nameFont),
                       ...goldText,
-                      fontSize: firstName.length > 9 ? '1.1em' : '1.28em',
+                      fontSize: nameSize,
                       lineHeight: 1.15,
                     }}
                   >
-                    {firstName}
+                    {fullName}
                   </p>
                   <div aria-hidden="true" className="mx-auto" style={{ height: '0.06em', width: '70%', margin: '0.08em auto 0.07em', background: `linear-gradient(90deg, transparent, ${g1}, transparent)` }} />
                   <h3

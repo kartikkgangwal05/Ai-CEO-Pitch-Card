@@ -531,6 +531,44 @@ var CAMPUS_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAASABIAAD/4QBARXhpZgAATU0AKgAAAAgAAY
 // server.ts
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 
+// src/utils/cardName.ts
+var HONORIFICS = /* @__PURE__ */ new Set([
+  "dr",
+  "prof",
+  "professor",
+  "mr",
+  "mrs",
+  "ms",
+  "miss",
+  "shri",
+  "shree",
+  "smt",
+  "sri",
+  "er",
+  "ca",
+  "cs",
+  "adv",
+  "col",
+  "capt",
+  "maj",
+  "gen",
+  "lt",
+  "hon",
+  "justice",
+  "sir",
+  "dame",
+  "mx"
+]);
+function cardName(full) {
+  const words = full.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "";
+  const out = [];
+  let i = 0;
+  while (i < words.length - 1 && HONORIFICS.has(words[i].replace(/\./g, "").toLowerCase())) out.push(words[i++]);
+  out.push(words[i]);
+  return out.join(" ");
+}
+
 // src/utils/pitch.ts
 var SPECIALISATIONS = [
   "Business Analytics",
@@ -872,7 +910,7 @@ function selectSmartCharacter(input) {
   }
 }
 function generateUniqueMotivationalLine(input, salt = 0) {
-  const firstName = (input.name.trim().split(/\s+/)[0] || "Scholar").replace(/[^a-zA-Z'-]/g, "") || "Scholar";
+  const firstName = (cardName(input.name) || "Scholar").replace(/[^a-zA-Z'. -]/g, "").trim() || "Scholar";
   const role = summarizePhrase(input.dreamRole || input.specialisation, 4) || "leadership";
   const idx = hashVisitorSeed(input, salt) % MOTIVATIONAL_TEMPLATES.length;
   return MOTIVATIONAL_TEMPLATES[idx](role, firstName);
@@ -949,7 +987,7 @@ function buildFunText(input, salt = 0) {
   let h = salt * 7;
   for (const ch of `${input.name}|${input.currentPosition}`) h = h * 31 + ch.charCodeAt(0) >>> 0;
   const pick = (list2, offset) => list2[(h + offset) % list2.length];
-  const first = input.name.trim().split(/\s+/)[0] || "This legend";
+  const first = cardName(input.name) || "This legend";
   return {
     title: pick(PERSONA_TITLES[input.personaId ?? "none"] ?? FUN_TITLES, 0),
     intro: `${first} enters the arena powered by pure confidence and one unfinished to-do list. Handle with care, highly contagious energy.`,

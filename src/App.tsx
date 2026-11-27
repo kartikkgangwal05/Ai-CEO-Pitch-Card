@@ -891,6 +891,13 @@ export default function App() {
               setBrowsingReveal(false);
             }}
             onPrint={() => void printHd()}
+            onEdit={() => {
+              setCurrentCard(revealCard);
+              setRevealCard(null);
+              setBrowsingReveal(false);
+              setActiveTabRaw('print');
+              setEditOnOpen(true);
+            }}
             nextLabel={browsingReveal ? 'Back to cards' : undefined}
             onNext={() => {
               if (browsingReveal || activeTab === 'history') {
