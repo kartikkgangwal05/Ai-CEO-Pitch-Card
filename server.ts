@@ -25,6 +25,7 @@ import type {
   CartoonStyleId,
   PersonaId,
   PitchInput,
+  LeaderTheme,
   Specialisation,
   StickerFontId,
   VisitorType,
@@ -138,13 +139,13 @@ function geminiStatus(): 'off' | 'quota' | 'ok' {
 }
 
 /** Gemini repaints the visitor's photo with the stream card brief; tries the image models this key can use. */
-async function geminiPortrait(ai: GoogleGenAI, photo: { mimeType: string; data: Buffer }, stream: Specialisation) {
+async function geminiPortrait(ai: GoogleGenAI, photo: { mimeType: string; data: Buffer }, stream: Specialisation, leaderTheme?: LeaderTheme) {
   const listed = await getImageModelCandidates(ai);
   const candidates = workingImageModel ? [workingImageModel, ...listed.filter((m) => m !== workingImageModel)] : listed;
   const parts = [
     { inlineData: { mimeType: photo.mimeType, data: photo.data.toString('base64') } },
     { inlineData: { mimeType: 'image/jpeg', data: CAMPUS_JPEG_BASE64 } },
-    { text: buildGeminiPrompt(stream) },
+    { text: buildGeminiPrompt(stream, leaderTheme) },
   ];
   let lastErr: unknown = new Error('No Gemini image model available for this key.');
   const started = Date.now();
@@ -453,7 +454,8 @@ export async function createApp() {
   // Stream portrait painted by Gemini from the visitor's photo. The browser sends a photo already
   // resized under 512x512; on any failure the booth keeps its in-browser portrait.
   app.post('/api/magic-portrait', async (req, res) => {
-    const { imageDataUrl, stream } = (req.body ?? {}) as { imageDataUrl?: string; stream?: Specialisation };
+    const { imageDataUrl, stream, leaderTheme: rawTheme } = (req.body ?? {}) as { imageDataUrl?: string; stream?: Specialisation; leaderTheme?: string };
+    const leaderTheme: LeaderTheme | undefined = rawTheme === 'gold' ? 'gold' : undefined;
     const gemini = getGeminiClient();
     if (!gemini) {
       res.status(503).json({ error: 'GEMINI_API_KEY is not set, so AI portraits are off.' });
@@ -469,7 +471,7 @@ export async function createApp() {
     {
       const started = Date.now();
       try {
-        const { image, model } = await geminiPortrait(gemini, photo, stream);
+        const { image, model } = await geminiPortrait(gemini, photo, stream, leaderTheme);
         console.log(`[gemini] portrait for ${stream} with ${model} in ${Date.now() - started} ms`);
         res.json({ image: await offloadLargeImage(image).catch(() => image), provider: 'gemini' });
         return;

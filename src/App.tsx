@@ -427,6 +427,7 @@ export default function App() {
       cartoonStyle: sourceInput.cartoonStyle,
       personaId: sourceInput.personaId,
       design: sourceInput.design,
+      leaderTheme: sourceInput.leaderTheme,
       stickerFont: sourceInput.stickerFont,
       dreamRole: sourceInput.dreamRole,
       tone: sourceInput.tone,
@@ -517,6 +518,7 @@ export default function App() {
       cartoonStyle: result.cartoonStyle,
       personaId: result.personaId,
       specialisation: result.stream,
+      leaderTheme: result.leaderTheme,
       design: 'arcane',
       strength1: result.strength,
       weakness: result.weakness,
@@ -877,7 +879,7 @@ export default function App() {
         />
       )}
 
-      <AnimatePresence>{isGenerating && <SummoningOverlay key="summon" photoUrl={input.capturedPhotoUrl} stream={input.design === 'arcane' ? input.specialisation : undefined} />}</AnimatePresence>
+      <AnimatePresence>{isGenerating && <SummoningOverlay key="summon" photoUrl={input.capturedPhotoUrl} stream={input.design === 'arcane' ? input.specialisation : undefined} leaderTheme={input.leaderTheme} />}</AnimatePresence>
       <AnimatePresence>
         {revealCard && (
           <RevealStage

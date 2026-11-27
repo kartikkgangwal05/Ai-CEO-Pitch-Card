@@ -2,9 +2,9 @@
 // (dark cloak with a coloured hood lining, stream-coloured stole, collar, solid tie with a gold pin,
 // round seal), standing in front of a brooding castle under storm clouds with floating rune sigils,
 // faint stream symbols and spell ribbons wrapping the figure. Original artwork, drawn procedurally.
-import type { Specialisation } from '../types/pitch';
+import type { LeaderTheme, Specialisation } from '../types/pitch';
 import { personMask, upperBody, type Pt, type UpperBody } from './segment';
-import { ICON_PATHS, STREAMS, type StreamTheme } from './streams';
+import { ICON_PATHS, STREAMS, themeFor, type StreamTheme } from './streams';
 
 const W = 1000;
 const H = 1000;
@@ -828,8 +828,8 @@ function sparks(ctx: CanvasRenderingContext2D, t: StreamTheme, b: Body | null, r
  * smaller previews) the height follows 1:1. Uses pose to frame from the face and a person cutout
  * when available; otherwise blends the whole photo into the scene.
  */
-export async function renderMagicPortrait(photoDataUrl: string, stream: Specialisation, width = W): Promise<string> {
-  const t = STREAMS[stream];
+export async function renderMagicPortrait(photoDataUrl: string, stream: Specialisation, width = W, leaderTheme?: LeaderTheme): Promise<string> {
+  const t = themeFor(stream, leaderTheme);
   const img = await loadImage(photoDataUrl);
   const rand = rng(stream.length * 7919 + 17);
   const iw = img.naturalWidth || 1;

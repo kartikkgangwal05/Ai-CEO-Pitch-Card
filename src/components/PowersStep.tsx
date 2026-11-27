@@ -1,7 +1,7 @@
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import type { CartoonStyleId, PersonaId, Specialisation, VisitorCard } from '../types/pitch';
-import { STREAMS } from '../utils/streams';
+import type { CartoonStyleId, LeaderTheme, PersonaId, Specialisation, VisitorCard } from '../types/pitch';
+import { themeFor } from '../utils/streams';
 import { getPersona } from '../utils/pitch';
 import { playTick } from '../utils/sfx';
 import { HoloTilt } from './HoloTilt';
@@ -59,6 +59,7 @@ interface PowersStepProps {
   previewUrl: string;
   /** When set, preview the ornate stream card. */
   stream?: Specialisation;
+  leaderTheme?: LeaderTheme;
   /** Replaces the preview card (e.g. the AI conjuring loader while the portrait is painted). */
   previewSlot?: ReactNode;
 }
@@ -70,7 +71,8 @@ function buildPreviewCard(
   personaId: PersonaId,
   powers: Powers,
   previewUrl: string,
-  stream?: Specialisation
+  stream?: Specialisation,
+  leaderTheme?: LeaderTheme
 ): VisitorCard {
   const persona = getPersona(personaId);
   return {
@@ -79,6 +81,7 @@ function buildPreviewCard(
     currentPosition: '',
     specialisation: stream ?? 'Business Analytics',
     design: stream ? 'arcane' : 'classic',
+    leaderTheme,
     capturedPhotoUrl: '',
     aiCharacterUrl: previewUrl,
     characterPrompt: '',
@@ -87,7 +90,7 @@ function buildPreviewCard(
     stickerFont: 'cartoon',
     dreamRole: '',
     tone: 'Confident',
-    title: powers.title || (stream ? STREAMS[stream].archetype : personaId !== 'none' ? `The ${persona.label} of ???` : 'Title forging…'),
+    title: powers.title || (stream ? themeFor(stream, leaderTheme).archetype : personaId !== 'none' ? `The ${persona.label} of ???` : 'Title forging…'),
     intro: 'Your two-line legend is written by AI the moment you are scanned. Stand by for greatness.',
     hobby: powers.hobby || '🎲 AI',
     pitch: '',
@@ -107,7 +110,7 @@ function buildPreviewCard(
 }
 
 /** Booth step: pick (or let AI pick) the one-word Strength / Weakness / Hobby, with a live card preview. */
-export function PowersStep({ name, styleId, personaId, powers, onChange, previewUrl, stream, previewSlot }: PowersStepProps) {
+export function PowersStep({ name, styleId, personaId, powers, onChange, previewUrl, stream, leaderTheme, previewSlot }: PowersStepProps) {
   const [customFor, setCustomFor] = useState<keyof Powers | null>(null);
   const [customText, setCustomText] = useState('');
   const [titleCustom, setTitleCustom] = useState<string | null>(null);
@@ -162,7 +165,7 @@ export function PowersStep({ name, styleId, personaId, powers, onChange, preview
               transition={{ type: 'spring', stiffness: 120, damping: 16 }}
             >
               <HoloTilt intensity={10} idle>
-                <TcgPitchCard card={buildPreviewCard(name, styleId, personaId, powers, previewUrl, stream)} mode="preview" />
+                <TcgPitchCard card={buildPreviewCard(name, styleId, personaId, powers, previewUrl, stream, leaderTheme)} mode="preview" />
               </HoloTilt>
               <p className="mt-3 text-center font-mono-nums text-[10px] uppercase tracking-[0.3em] text-sky-400/70">Live preview</p>
             </motion.div>

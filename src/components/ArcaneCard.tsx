@@ -2,7 +2,7 @@ import { useId, type CSSProperties } from 'react';
 import { nameFontStyle } from '../utils/nameFonts';
 import { memberNo } from '../utils/foundingMember';
 import type { VisitorCard } from '../types/pitch';
-import { ICON_PATHS, STREAMS } from '../utils/streams';
+import { ICON_PATHS, STREAMS, themeFor } from '../utils/streams';
 
 interface ArcaneCardProps {
   card: VisitorCard;
@@ -152,7 +152,7 @@ function Icon({ path, color, size = '1.15em' }: { path: string; color: string; s
  * Sized in em off the card width (container query units), so it is identical on screen and in print.
  */
 export function ArcaneCard({ card, mode = 'preview' }: ArcaneCardProps) {
-  const t = STREAMS[card.specialisation] ?? STREAMS['Business Analytics'];
+  const t = themeFor(card.specialisation, card.leaderTheme);
   const isPrint = mode === 'print';
   const portrait = card.aiCharacterUrl || card.capturedPhotoUrl;
   const [g0, g1, g2] = t.frame;

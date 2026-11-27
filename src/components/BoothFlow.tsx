@@ -3,8 +3,8 @@ import { selectOnFocus } from '../utils/selectOnFocus';
 import { cleanMemberNo } from '../utils/foundingMember';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Camera, History, ImageUp, Settings2, Sparkles } from 'lucide-react';
-import type { CartoonStyleId, PersonaId, Specialisation, VisitorCard } from '../types/pitch';
-import { ICON_PATHS, STREAMS, STREAM_ORDER } from '../utils/streams';
+import type { CartoonStyleId, LeaderTheme, PersonaId, Specialisation, VisitorCard } from '../types/pitch';
+import { ICON_PATHS, LEADER_THEMES, STREAMS, STREAM_ORDER, themeFor } from '../utils/streams';
 import { renderMagicPortrait } from '../utils/magicPortrait';
 import { requestStreamPortrait, type PortraitResult } from '../utils/streamPortrait';
 import { ConjuringLoader } from './ConjuringLoader';
@@ -28,6 +28,8 @@ export interface BoothResult {
   personaId: PersonaId;
   /** PGDM stream: sets the card colours, icons and title theme. */
   stream: Specialisation;
+  /** Leadership only: purple griffin or golden lion look. */
+  leaderTheme?: LeaderTheme;
   /** One-word stats picked in the booth; empty string means the AI decides. */
   strength: string;
   weakness: string;
@@ -66,7 +68,8 @@ const SAMPLE_FILE: Record<Specialisation, string> = {
   'Executive Leadership': 'leadership',
 };
 /** AI-painted sample art per stream (generated once with scripts/generate-samples.ts). */
-export const sampleArt = (id: Specialisation) => `/samples/${SAMPLE_FILE[id]}.jpg`;
+export const sampleArt = (id: Specialisation, leaderTheme?: LeaderTheme) =>
+  `/samples/${SAMPLE_FILE[id]}${id === 'Executive Leadership' && leaderTheme === 'gold' ? '-gold' : ''}.jpg`;
 
 /**
  * Square, mirrored (selfie) JPEG from the live video or an uploaded image. `topBias` moves the crop of a
@@ -145,8 +148,11 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
   const [localPortrait, setLocalPortrait] = useState<string | null>(null);
   const [ai, setAi] = useState<{ status: 'idle' | 'working' | 'done'; image: string | null; error?: string | null; provider?: 'gemini' }>({ status: 'idle', image: null });
   const aiJob = useRef<Promise<PortraitResult> | null>(null);
-  const [missingSamples, setMissingSamples] = useState<Set<Specialisation>>(new Set());
+  const [missingSamples, setMissingSamples] = useState<Set<string>>(new Set());
   const [stream, setStream] = useState<Specialisation>('Business Analytics');
+  const [leaderThemeChoice, setLeaderTheme] = useState<LeaderTheme>('purple');
+  // Only Leadership has two looks; every other stream ignores the choice.
+  const leaderTheme: LeaderTheme | undefined = stream === 'Executive Leadership' ? leaderThemeChoice : undefined;
   const styleId: CartoonStyleId = 'bold-toon';
   const personaId: PersonaId = 'none';
   const [powers, setPowers] = useState<Powers>({ strength: '', weakness: '', hobby: '', title: '' });
@@ -191,7 +197,7 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
     let cancelled = false;
     setLocalPortrait(null);
     setAi({ status: 'working', image: null });
-    const job = requestStreamPortrait(photo, stream);
+    const job = requestStreamPortrait(photo, stream, leaderTheme);
     aiJob.current = job;
     void job.then((r) => {
       if (!cancelled) setAi({ status: 'done', image: r.image, error: r.error, provider: r.provider });
@@ -201,13 +207,13 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
         .then((h) => setGeminiState(h.geminiStatus ?? null))
         .catch(() => {});
     });
-    void renderMagicPortrait(photo, stream, 1000)
+    void renderMagicPortrait(photo, stream, 1000, leaderTheme)
       .then((url) => !cancelled && setLocalPortrait(url))
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [photo, stream]);
+  }, [photo, stream, leaderTheme]);
 
   const reset = useCallback(() => {
     setStep('attract');
@@ -247,9 +253,9 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
   const create = async () => {
     if (!photo || creating) return;
     setCreating(true);
-    const local = localPortrait ?? (await renderMagicPortrait(photo, stream, 1000).catch(() => photo));
+    const local = localPortrait ?? (await renderMagicPortrait(photo, stream, 1000, leaderTheme).catch(() => photo));
     const aiPortrait = aiJob.current ?? Promise.resolve({ image: null, error: null });
-    onComplete({ name: name.trim(), foundingMemberNo: memberNo.trim(), photoDataUrl: photo, portraitUrl: ai.image ?? local, aiPortrait, cartoonStyle: styleId, personaId, stream, ...powers });
+    onComplete({ name: name.trim(), foundingMemberNo: memberNo.trim(), photoDataUrl: photo, portraitUrl: ai.image ?? local, aiPortrait, cartoonStyle: styleId, personaId, stream, leaderTheme, ...powers });
     reset();
   };
 
@@ -275,7 +281,7 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
   });
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
-  const theme = STREAMS[stream];
+  const theme = themeFor(stream, leaderTheme);
   const firstName = name.trim().split(/\s+/)[0];
 
   return (
@@ -475,9 +481,10 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
               </h2>
               <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
                 {STREAM_ORDER.map((id, i) => {
-                  const t = STREAMS[id];
+                  const look = id === 'Executive Leadership' ? leaderThemeChoice : undefined;
+                  const t = themeFor(id, look);
                   const active = id === stream;
-                  const src = sampleArt(id);
+                  const src = sampleArt(id, look);
                   return (
                     <motion.button
                       key={id}
@@ -504,11 +511,11 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
                             <path d={ICON_PATHS[t.icons[0]]} fill="none" stroke={t.light} strokeWidth="1.4" />
                           </svg>
                         </div>
-                        {!missingSamples.has(id) && (
+                        {!missingSamples.has(src) && (
                           <img
                             src={src}
                             alt=""
-                            onError={() => setMissingSamples((prev) => new Set(prev).add(id))}
+                            onError={() => setMissingSamples((prev) => new Set(prev).add(src))}
                             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                           />
                         )}
@@ -536,6 +543,42 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
                 })}
               </div>
 
+              {stream === 'Executive Leadership' && (
+                <div className="mt-6 flex flex-col items-center gap-2" data-testid="leader-theme-picker">
+                  <p className="font-mono-nums text-[11px] uppercase tracking-[0.3em] text-sky-300/80">Leadership card look</p>
+                  <div className="flex flex-wrap justify-center gap-3" role="group" aria-label="Leadership card look">
+                    {LEADER_THEMES.map((opt) => {
+                      const t = themeFor('Executive Leadership', opt.id);
+                      const on = leaderThemeChoice === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          data-testid={`leader-theme-${opt.id}`}
+                          aria-pressed={on}
+                          onClick={() => {
+                            playTick(false);
+                            setLeaderTheme(opt.id);
+                          }}
+                          className="flex items-center gap-3 rounded-2xl px-4 py-2.5 text-left cursor-pointer transition-transform hover:-translate-y-0.5"
+                          style={{
+                            border: `2px solid ${on ? t.light : t.glow + '55'}`,
+                            background: `radial-gradient(circle at 20% 50%, ${t.glow}55, ${t.deep})`,
+                            boxShadow: on ? `0 0 24px ${t.glow}` : undefined,
+                          }}
+                        >
+                          <span className="h-8 w-8 shrink-0 rounded-full" style={{ background: `radial-gradient(circle at 35% 35%, ${t.light}, ${t.glow} 55%, ${t.deep})` }} aria-hidden="true" />
+                          <span>
+                            <span className="block text-sm font-extrabold text-white" style={{ fontFamily: 'Cinzel, serif' }}>{opt.label}</span>
+                            <span className="block text-[11px]" style={{ color: t.light }}>{opt.animal} spirit {on ? '· selected' : ''}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-8 flex items-center gap-4">
                 <button type="button" onClick={() => go('name')} className="booth-ghost-btn">
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
@@ -558,10 +601,11 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
                 powers={powers}
                 onChange={setPowers}
                 stream={stream}
+                leaderTheme={leaderTheme}
                 previewUrl={ai.image ?? localPortrait ?? photo ?? ''}
                 previewSlot={
                   ai.status === 'working' && photo ? (
-                    <ConjuringLoader photo={photo} stream={stream} />
+                    <ConjuringLoader photo={photo} stream={stream} leaderTheme={leaderTheme} />
                   ) : undefined
                 }
               />

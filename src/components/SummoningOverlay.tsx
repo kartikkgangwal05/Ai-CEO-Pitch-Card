@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { playCharge } from '../utils/sfx';
-import type { Specialisation } from '../types/pitch';
+import type { LeaderTheme, Specialisation } from '../types/pitch';
 import { ConjuringLoader } from './ConjuringLoader';
 
 const MESSAGES = [
@@ -21,10 +21,11 @@ interface SummoningOverlayProps {
   photoUrl?: string;
   /** Stream cards: show the themed conjuring loader instead of the generic one. */
   stream?: Specialisation;
+  leaderTheme?: LeaderTheme;
 }
 
 /** Full-screen "summoning" loader shown while Gemini works. */
-export function SummoningOverlay({ photoUrl, stream }: SummoningOverlayProps) {
+export function SummoningOverlay({ photoUrl, stream, leaderTheme }: SummoningOverlayProps) {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export function SummoningOverlay({ photoUrl, stream }: SummoningOverlayProps) {
         <div aria-hidden="true" className="booth-aura absolute inset-0" />
         <p className="relative mb-8 font-mono-nums text-xs uppercase tracking-[0.4em] text-[#00D4FF]">Forging your power card</p>
         <div className="relative">
-          <ConjuringLoader photo={photoUrl} stream={stream} size="full" />
+          <ConjuringLoader photo={photoUrl} stream={stream} leaderTheme={leaderTheme} size="full" />
         </div>
       </motion.div>,
       document.body

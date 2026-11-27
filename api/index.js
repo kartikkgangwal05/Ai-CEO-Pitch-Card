@@ -442,11 +442,24 @@ var STREAMS = {
     flavor: "a visionary leader and founder who summons growth, partnerships and big bets"
   }
 };
+var LEADER_GOLD = {
+  ...STREAMS["Executive Leadership"],
+  short: "Leadership",
+  archetype: "The Lion Leader",
+  glow: "#F5B700",
+  light: "#FFE9A3",
+  deep: "#2A1A02",
+  printDeep: "#4A3006",
+  printInk: "#2E1C03",
+  ink: "#170D01",
+  frame: GOLD
+};
 
 // server/portraitArt.ts
 var STREAM_LOOK = {
   HR: {
-    spirit: "a majestic glowing golden lion spirit made of light",
+    // a loyal wolf: the pack, i.e. teams and belonging (the golden lion is now Leadership's gold look)
+    spirit: "a loyal glowing amber wolf spirit made of light, calm and protective",
     colour: "warm gold and amber",
     prop: "holding a glowing golden hologram of three people icons floating above the open palm",
     symbols: "faint glowing silhouettes of people and teams"
@@ -478,8 +491,13 @@ var STREAM_LOOK = {
   }
 };
 var keepsOwnClothes = (stream) => stream === "Executive Leadership";
-function artBrief(stream, subject, campusImage, faithful = false) {
-  const look = STREAM_LOOK[stream] ?? STREAM_LOOK["Business Analytics"];
+var LEADER_GOLD_LOOK = {
+  ...STREAM_LOOK["Executive Leadership"],
+  spirit: "a majestic glowing golden lion spirit made of light",
+  colour: "rich royal gold"
+};
+function artBrief(stream, subject, campusImage, faithful = false, leaderTheme) {
+  const look = stream === "Executive Leadership" && leaderTheme === "gold" ? LEADER_GOLD_LOOK : STREAM_LOOK[stream] ?? STREAM_LOOK["Business Analytics"];
   const ownClothes = faithful && keepsOwnClothes(stream);
   return [
     "Premium cinematic fantasy collectible trading-card artwork in a photorealistic style, like a high-end movie still with magical effects.",
@@ -495,13 +513,13 @@ function artBrief(stream, subject, campusImage, faithful = false) {
     "No text, no letters, no logos, no watermark, no card border or frame."
   ].join(" ");
 }
-function buildGeminiPrompt(stream) {
+function buildGeminiPrompt(stream, leaderTheme) {
   return [
     "Edit the first attached image, a real photo of a person. The second attached image is the campus building for the background.",
     "MOST IMPORTANT: this is a photo edit, not a new drawing. Keep the person's head, face and hair exactly as photographed, as if cut out of the original photo: same face shape, jawline, forehead, eyes (shape, size, spacing, colour), eyebrows, nose, lips, ears, skin tone and texture, moles or marks, age, hairline and hairstyle, facial hair, glasses and expression.",
     "Do not redraw, repaint, beautify, slim, smooth, sharpen into a different face, lighten or darken the skin, de-age, turn the head, change the expression or make the face more symmetrical. Friends and family must recognise the person instantly; if in doubt, change less.",
     keepsOwnClothes(stream) ? "Keep their clothing exactly as photographed too, and do not put anything in their hands. Only the magical effects, the lighting around the person and the background change." : "Only the clothing below the neck, one raised hand, the magical effects, the lighting around the person and the background change.",
-    artBrief(stream, "the exact person in the first image", "the second image", true),
+    artBrief(stream, "the exact person in the first image", "the second image", true, leaderTheme),
     "Keep the face large and in sharp focus.",
     "Portrait orientation."
   ].join(" ");
@@ -1110,13 +1128,13 @@ function geminiStatus() {
   if (!getGeminiClient()) return "off";
   return Date.now() < geminiQuotaUntil ? "quota" : "ok";
 }
-async function geminiPortrait(ai, photo, stream) {
+async function geminiPortrait(ai, photo, stream, leaderTheme) {
   const listed = await getImageModelCandidates(ai);
   const candidates = workingImageModel ? [workingImageModel, ...listed.filter((m) => m !== workingImageModel)] : listed;
   const parts = [
     { inlineData: { mimeType: photo.mimeType, data: photo.data.toString("base64") } },
     { inlineData: { mimeType: "image/jpeg", data: CAMPUS_JPEG_BASE64 } },
-    { text: buildGeminiPrompt(stream) }
+    { text: buildGeminiPrompt(stream, leaderTheme) }
   ];
   let lastErr = new Error("No Gemini image model available for this key.");
   const started = Date.now();
@@ -1380,7 +1398,8 @@ async function createApp() {
     }
   });
   app.post("/api/magic-portrait", async (req, res) => {
-    const { imageDataUrl, stream } = req.body ?? {};
+    const { imageDataUrl, stream, leaderTheme: rawTheme } = req.body ?? {};
+    const leaderTheme = rawTheme === "gold" ? "gold" : void 0;
     const gemini = getGeminiClient();
     if (!gemini) {
       res.status(503).json({ error: "GEMINI_API_KEY is not set, so AI portraits are off." });
@@ -1395,7 +1414,7 @@ async function createApp() {
     {
       const started = Date.now();
       try {
-        const { image, model } = await geminiPortrait(gemini, photo, stream);
+        const { image, model } = await geminiPortrait(gemini, photo, stream, leaderTheme);
         console.log(`[gemini] portrait for ${stream} with ${model} in ${Date.now() - started} ms`);
         res.json({ image: await offloadLargeImage(image).catch(() => image), provider: "gemini" });
         return;

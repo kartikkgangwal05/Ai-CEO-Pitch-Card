@@ -1,4 +1,4 @@
-import type { Specialisation } from '../types/pitch';
+import type { LeaderTheme, Specialisation } from '../types/pitch';
 
 export type StreamIcon = 'people' | 'heart' | 'handshake' | 'chart' | 'target' | 'bulb' | 'coins' | 'trend' | 'shield' | 'megaphone' | 'like' | 'play' | 'crown' | 'rocket' | 'star';
 
@@ -104,6 +104,32 @@ export const STREAMS: Record<Specialisation, StreamTheme> = {
     flavor: 'a visionary leader and founder who summons growth, partnerships and big bets',
   },
 };
+
+/** Leadership's second look: the golden lion (gold glow on a deep bronze panel). */
+export const LEADER_GOLD: StreamTheme = {
+  ...STREAMS['Executive Leadership'],
+  short: 'Leadership',
+  archetype: 'The Lion Leader',
+  glow: '#F5B700',
+  light: '#FFE9A3',
+  deep: '#2A1A02',
+  printDeep: '#4A3006',
+  printInk: '#2E1C03',
+  ink: '#170D01',
+  frame: GOLD,
+};
+
+/** The two Leadership looks, as shown in the booth. */
+export const LEADER_THEMES: { id: LeaderTheme; label: string; animal: string }[] = [
+  { id: 'purple', label: 'Royal Purple', animal: 'Griffin' },
+  { id: 'gold', label: 'Golden Lion', animal: 'Lion' },
+];
+
+/** Theme for a card: the stream's, or the golden lion look for a gold Leadership card. */
+export function themeFor(stream: Specialisation, leaderTheme?: LeaderTheme): StreamTheme {
+  if (stream === 'Executive Leadership' && leaderTheme === 'gold') return LEADER_GOLD;
+  return STREAMS[stream] ?? STREAMS['Business Analytics'];
+}
 
 export const STREAM_ORDER: Specialisation[] = ['HR', 'Business Analytics', 'Finance', 'Marketing', 'Executive Leadership'];
 
