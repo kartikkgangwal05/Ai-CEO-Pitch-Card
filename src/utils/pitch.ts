@@ -1,4 +1,5 @@
 import { STREAMS } from './streams';
+import { cardName } from './cardName';
 import type {
   CartoonStyleId,
   PersonaId,
@@ -661,7 +662,7 @@ export function generateUniqueMotivationalLine(
   salt = 0
 ): string {
   const firstName =
-    (input.name.trim().split(/\s+/)[0] || 'Scholar').replace(/[^a-zA-Z'-]/g, '') || 'Scholar';
+    (cardName(input.name) || 'Scholar').replace(/[^a-zA-Z'. -]/g, '').trim() || 'Scholar';
   const role = summarizePhrase(input.dreamRole || input.specialisation, 4) || 'leadership';
   const idx = hashVisitorSeed(input, salt) % MOTIVATIONAL_TEMPLATES.length;
   return MOTIVATIONAL_TEMPLATES[idx](role, firstName);
@@ -770,7 +771,7 @@ export function buildFunText(
   let h = salt * 7;
   for (const ch of `${input.name}|${input.currentPosition}`) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const pick = (list: readonly string[], offset: number) => list[(h + offset) % list.length];
-  const first = input.name.trim().split(/\s+/)[0] || 'This legend';
+  const first = cardName(input.name) || 'This legend';
   return {
     title: pick(PERSONA_TITLES[input.personaId ?? 'none'] ?? FUN_TITLES, 0),
     intro: `${first} enters the arena powered by pure confidence and one unfinished to-do list. Handle with care, highly contagious energy.`,

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { cardName } from '../utils/cardName';
 import { NAME_FONT_OPTIONS } from '../utils/nameFonts';
 import { selectOnFocus } from '../utils/selectOnFocus';
 import { cleanMemberNo, memberNo } from '../utils/foundingMember';
@@ -299,7 +300,7 @@ export function CardEditPanel({ card, onSave, onCancel, onPreview }: CardEditPan
                 }`}
               >
                 <span className="block truncate text-sm leading-tight" style={font.style}>
-                  {(name.trim().split(/\s+/)[0] || 'Name').slice(0, 10)}
+                  {(cardName(name) || 'Name').slice(0, 14)}
                 </span>
                 <span className="block text-[10px] font-semibold mt-0.5 truncate">{font.label}</span>
               </button>

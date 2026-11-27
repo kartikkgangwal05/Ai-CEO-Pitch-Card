@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { ArrowRight, Printer, X } from 'lucide-react';
+import { ArrowRight, Pencil, Printer, X } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
 import { TCG_THEMES } from '../utils/pitch';
 import { playReveal } from '../utils/sfx';
@@ -21,6 +21,8 @@ interface RevealStageProps {
   onClose: () => void;
   onPrint: () => void;
   onNext: () => void;
+  /** Opens the card in the editor (fix the name, title, words...). */
+  onEdit?: () => void;
   /** Label for the Next button (e.g. "Back to cards" when showing an old card). */
   nextLabel?: string;
 }
@@ -37,7 +39,7 @@ function useFitScale() {
 }
 
 /** Full-screen "wow" reveal: card flies in face-down, flips, flashes and showers confetti. */
-export function RevealStage({ card, warning, onClose, onPrint, onNext, nextLabel = 'Next person' }: RevealStageProps) {
+export function RevealStage({ card, warning, onClose, onPrint, onNext, onEdit, nextLabel = 'Next person' }: RevealStageProps) {
   const scale = useFitScale();
   const theme = TCG_THEMES[card.specialisation];
   const [revealed, setRevealed] = useState(false);
@@ -63,8 +65,8 @@ export function RevealStage({ card, warning, onClose, onPrint, onNext, nextLabel
     return () => window.clearTimeout(t);
   }, [card.aiCharacterUrl, card.capturedPhotoUrl]);
   // Keep the latest handlers in a ref so the key listener and sound timer are set up only once.
-  const handlers = useRef({ onClose, onPrint, onNext });
-  handlers.current = { onClose, onPrint, onNext };
+  const handlers = useRef({ onClose, onPrint, onNext, onEdit });
+  handlers.current = { onClose, onPrint, onNext, onEdit };
 
   const celebrate = useCallback(() => {
     const colors = [theme.accentHex, '#00D4FF', '#ffffff', '#FFD54A', '#FF4DA6', '#7CFFB2'];
@@ -85,12 +87,13 @@ export function RevealStage({ card, warning, onClose, onPrint, onNext, nextLabel
     document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if (!['escape', 'p', 'enter', 'n'].includes(k)) return;
+      if (!['escape', 'p', 'e', 'enter', 'n'].includes(k)) return;
       // Consume the key so nothing underneath (the booth) reacts to the same press.
       e.preventDefault();
       e.stopImmediatePropagation();
       if (k === 'escape') handlers.current.onClose();
       else if (k === 'p') handlers.current.onPrint();
+      else if (k === 'e' && handlers.current.onEdit) handlers.current.onEdit();
       else handlers.current.onNext();
     };
     window.addEventListener('keydown', onKey, { capture: true });
@@ -250,6 +253,17 @@ export function RevealStage({ card, warning, onClose, onPrint, onNext, nextLabel
                 <Printer className="h-4 w-4" aria-hidden="true" />
                 Print card <kbd className="rounded bg-black/15 px-1.5 text-[10px]">P</kbd>
               </button>
+              {onEdit && (
+                <button
+                  type="button"
+                  data-testid="reveal-edit-btn"
+                  onClick={onEdit}
+                  className="inline-flex items-center gap-2 rounded-xl border border-amber-300/60 bg-amber-300/10 px-5 py-3 text-sm font-bold text-amber-100 hover:bg-amber-300/20 cursor-pointer"
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                  Edit card <kbd className="rounded bg-white/10 px-1.5 text-[10px]">E</kbd>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onNext}

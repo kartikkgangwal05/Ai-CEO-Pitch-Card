@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { printHd } from '../utils/hdPrint';
 import { memberNo } from '../utils/foundingMember';
 import { Maximize2, Pencil, Printer, Sparkles } from 'lucide-react';
@@ -32,6 +32,13 @@ export function PrintSheetTab({
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [modalInitialEdit, setModalInitialEdit] = useState(false);
   const [isInlineEditing, setIsInlineEditing] = useState(startEditing);
+  // Opened from an Edit button: bring the editor into view straight away.
+  const scrollToEditor = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (el && startEditing) window.setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    },
+    [startEditing]
+  );
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   // Unsaved edits from the inline editor, shown live on the card.
   const [draftCard, setDraftCard] = useState<VisitorCard | null>(null);
@@ -215,7 +222,7 @@ export function PrintSheetTab({
         )}
 
         {isInlineEditing && activeCard && (
-          <div className="lg:col-span-6">
+          <div className="lg:col-span-6" ref={scrollToEditor}>
             <CardEditPanel
               card={activeCard}
               onSave={handleSaveCard}
