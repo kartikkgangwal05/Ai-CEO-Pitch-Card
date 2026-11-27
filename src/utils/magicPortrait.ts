@@ -982,7 +982,8 @@ export async function renderMagicPortrait(photoDataUrl: string, stream: Speciali
     ribbons(ctx, t, body, 'front', rand);
   }
 
-  emblem(ctx, t, body);
+  // Leadership cards (guests and faculty) have nothing in their hands.
+  if (stream !== 'Executive Leadership') emblem(ctx, t, body);
   sparks(ctx, t, body, rand, 35);
 
   // 5. Stream-coloured grade, vignette and a fade into the card at the bottom.
