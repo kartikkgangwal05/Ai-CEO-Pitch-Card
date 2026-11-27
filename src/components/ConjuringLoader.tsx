@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import type { Specialisation } from '../types/pitch';
-import { ICON_PATHS, STREAMS } from '../utils/streams';
+import type { LeaderTheme, Specialisation } from '../types/pitch';
+import { ICON_PATHS, themeFor } from '../utils/streams';
 
 interface ConjuringLoaderProps {
   photo: string;
   stream: Specialisation;
+  leaderTheme?: LeaderTheme;
   /** When true, the bar fills to 100% and the loader shows "Ready". */
   done?: boolean;
   /** 'card' fits the Powers preview slot; 'full' is the full-screen overlay. */
@@ -19,8 +20,8 @@ const EXPECTED_MS = 12000;
  * Themed progress while the AI paints the portrait: the visitor's photo inside rotating gold rune
  * rings with a scanning beam, stage-by-stage status in the stream's colour and an eased progress bar.
  */
-export function ConjuringLoader({ photo, stream, done = false, size = 'card' }: ConjuringLoaderProps) {
-  const t = STREAMS[stream];
+export function ConjuringLoader({ photo, stream, leaderTheme, done = false, size = 'card' }: ConjuringLoaderProps) {
+  const t = themeFor(stream, leaderTheme);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {

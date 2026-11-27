@@ -82,7 +82,11 @@ export interface PitchInput {
   cardTitle?: string;
   /** Founding member number typed by the booth team, printed on the card (e.g. "027"). */
   foundingMemberNo?: string;
+  /** Leadership cards only: purple griffin (default) or golden lion look. */
+  leaderTheme?: LeaderTheme;
 }
+
+export type LeaderTheme = 'purple' | 'gold';
 
 export interface PitchResult {
   /** Funny 2-4 word card title, e.g. "Captain Snooze Button". */

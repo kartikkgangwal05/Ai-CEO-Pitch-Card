@@ -1,4 +1,4 @@
-import type { Specialisation } from '../types/pitch';
+import type { LeaderTheme, Specialisation } from '../types/pitch';
 
 export interface PortraitResult {
   /** AI-painted portrait (data URL), or null to keep the in-browser portrait. */
@@ -27,13 +27,13 @@ export function squareJpeg(src: string, size: number): Promise<string> {
 }
 
 /** Ask the server for the AI stream portrait (Gemini). Never throws. */
-export async function requestStreamPortrait(photo: string, stream: Specialisation): Promise<PortraitResult> {
+export async function requestStreamPortrait(photo: string, stream: Specialisation, leaderTheme?: LeaderTheme): Promise<PortraitResult> {
   try {
     const small = await squareJpeg(photo, 1440);
     const res = await fetch('/api/magic-portrait', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageDataUrl: small, stream }),
+      body: JSON.stringify({ imageDataUrl: small, stream, leaderTheme }),
     });
     if (res.status === 503) return { image: null, error: null };
     const payload = (await res.json().catch(() => ({}))) as { image?: string; error?: string; provider?: 'gemini' };

@@ -1,11 +1,12 @@
 // The booth's art brief for the stream portraits (premium cinematic wizard-academy collectible art).
 // Gemini paints the visitor's photo with it; the card frame and all text are drawn by the app.
-import type { Specialisation } from '../src/types/pitch.ts';
+import type { LeaderTheme, Specialisation } from '../src/types/pitch.ts';
 
 /** Per-stream colour, held emblem and background symbols (the client's brief, kept original). */
 const STREAM_LOOK: Record<Specialisation, { colour: string; prop: string; symbols: string; spirit: string }> = {
   HR: {
-    spirit: 'a majestic glowing golden lion spirit made of light',
+    // a loyal wolf: the pack, i.e. teams and belonging (the golden lion is now Leadership's gold look)
+    spirit: 'a loyal glowing amber wolf spirit made of light, calm and protective',
     colour: 'warm gold and amber',
     prop: 'holding a glowing golden hologram of three people icons floating above the open palm',
     symbols: 'faint glowing silhouettes of people and teams',
@@ -45,8 +46,16 @@ const STREAM_LOOK: Record<Specialisation, { colour: string; prop: string; symbol
 /** Leadership cards are made for guests and faculty: they keep their own outfit (no robe or tie). */
 const keepsOwnClothes = (stream: Specialisation) => stream === 'Executive Leadership';
 
-function artBrief(stream: Specialisation, subject: string, campusImage: string, faithful = false): string {
-  const look = STREAM_LOOK[stream] ?? STREAM_LOOK['Business Analytics'];
+/** Leadership's golden lion look (same empty-handed, own-clothes rules as the purple one). */
+const LEADER_GOLD_LOOK = {
+  ...STREAM_LOOK['Executive Leadership'],
+  spirit: 'a majestic glowing golden lion spirit made of light',
+  colour: 'rich royal gold',
+};
+
+function artBrief(stream: Specialisation, subject: string, campusImage: string, faithful = false, leaderTheme?: LeaderTheme): string {
+  const look =
+    stream === 'Executive Leadership' && leaderTheme === 'gold' ? LEADER_GOLD_LOOK : (STREAM_LOOK[stream] ?? STREAM_LOOK['Business Analytics']);
   const ownClothes = faithful && keepsOwnClothes(stream);
   return [
     'Premium cinematic fantasy collectible trading-card artwork in a photorealistic style, like a high-end movie still with magical effects.',
@@ -72,7 +81,7 @@ function artBrief(stream: Specialisation, subject: string, campusImage: string, 
 }
 
 /** For Gemini: image 1 is the visitor's photo, image 2 is the campus photo. */
-export function buildGeminiPrompt(stream: Specialisation): string {
+export function buildGeminiPrompt(stream: Specialisation, leaderTheme?: LeaderTheme): string {
   return [
     'Edit the first attached image, a real photo of a person. The second attached image is the campus building for the background.',
     "MOST IMPORTANT: this is a photo edit, not a new drawing. Keep the person's head, face and hair exactly as photographed, as if cut out of the original photo: same face shape, jawline, forehead, eyes (shape, size, spacing, colour), eyebrows, nose, lips, ears, skin tone and texture, moles or marks, age, hairline and hairstyle, facial hair, glasses and expression.",
@@ -80,7 +89,7 @@ export function buildGeminiPrompt(stream: Specialisation): string {
     keepsOwnClothes(stream)
       ? 'Keep their clothing exactly as photographed too, and do not put anything in their hands. Only the magical effects, the lighting around the person and the background change.'
       : 'Only the clothing below the neck, one raised hand, the magical effects, the lighting around the person and the background change.',
-    artBrief(stream, 'the exact person in the first image', 'the second image', true),
+    artBrief(stream, 'the exact person in the first image', 'the second image', true, leaderTheme),
     'Keep the face large and in sharp focus.',
     'Portrait orientation.',
   ].join(' ');
