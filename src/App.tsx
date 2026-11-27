@@ -58,7 +58,13 @@ const EMPTY_INPUT: PitchInput = {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>('booth');
+  const [activeTab, setActiveTabRaw] = useState<AppTab>('booth');
+  // History's Edit button opens Edit & Print with the editor showing; other ways in open it closed.
+  const [editOnOpen, setEditOnOpen] = useState(false);
+  const setActiveTab = useCallback((tab: AppTab) => {
+    setEditOnOpen(false);
+    setActiveTabRaw(tab);
+  }, []);
   const [input, setInput] = useState<PitchInput>(EMPTY_INPUT);
   const [errors, setErrors] = useState<Partial<Record<keyof PitchInput, string>>>({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -645,10 +651,10 @@ export default function App() {
             {(
               [
                 { id: 'booth', label: 'Booth Mode' },
+                { id: 'history', label: `History (${historyCards.length})` },
+                { id: 'print', label: 'Edit & Print' },
                 { id: 'create', label: 'Create Card' },
                 { id: 'say-it', label: 'Say It' },
-                { id: 'print', label: 'Print Card (2.5×3.5")' },
-                { id: 'history', label: `History (${historyCards.length})` },
                 { id: 'test-plan', label: 'Test Plan' },
               ] as const
             ).map((tab) => {
@@ -694,10 +700,10 @@ export default function App() {
           {(
             [
               { id: 'booth', label: 'Booth' },
+              { id: 'history', label: 'History' },
+              { id: 'print', label: 'Edit/Print' },
               { id: 'create', label: 'Create' },
               { id: 'say-it', label: 'Say It' },
-              { id: 'print', label: 'Print' },
-              { id: 'history', label: 'History' },
               { id: 'test-plan', label: 'Tests' },
             ] as const
           ).map((tab) => {
@@ -724,7 +730,7 @@ export default function App() {
         <div className="no-print mb-6 flex flex-wrap items-baseline justify-between gap-3 border-b border-sky-400/20 pb-4">
           <div>
             <p className="text-xs font-mono-nums font-semibold text-[#00D4FF] tracking-wide">
-              #DYPAICoE Launch · Dr. D. Y. Patil B-School, Pune · PGDM 2026–28 & VIP Leaders
+              #DYPBSAICoE Launch · Dr. D. Y. Patil B-School, Pune · PGDM 2026–28 & VIP Leaders
             </p>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-0.5 text-shimmer">
               Funny Power Card Studio
@@ -822,6 +828,7 @@ export default function App() {
             onUpdateCard={handleUpdateCard}
             onLoadSampleCohort={handleLoadSampleCohort}
             onGoToCreate={() => setActiveTab('create')}
+            startEditing={editOnOpen}
           />
         )}
 
@@ -835,6 +842,11 @@ export default function App() {
             onPrint={(card) => {
               setCurrentCard(card);
               setPrintCard(card);
+            }}
+            onEdit={(card) => {
+              setCurrentCard(card);
+              setActiveTabRaw('print');
+              setEditOnOpen(true);
             }}
             onDelete={(card) => void handleDeleteHistoryCard(card)}
             onImported={() => void reloadHistory()}
@@ -859,8 +871,6 @@ export default function App() {
         <BoothFlow
           onComplete={handleBoothComplete}
           suggestedMemberNo={suggestedMemberNo}
-          recentCards={historyCards}
-          onShowCard={showCard}
           onOpenStudio={() => setActiveTab('create')}
           onOpenHistory={() => setActiveTab('history')}
           paused={isGenerating || revealCard !== null}

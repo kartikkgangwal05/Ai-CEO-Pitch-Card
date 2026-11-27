@@ -124,7 +124,7 @@ function MirrorCard() {
     >
       <div className="relative flex h-full flex-col overflow-hidden rounded-[10px] bg-[#0b0820]">
         <p className="pt-2 text-center text-sm font-extrabold tracking-wider" style={{ fontFamily: 'Cinzel, serif', color: '#FFE7A8' }}>
-          #DYPAICOE
+          #DYPBSAICOE
         </p>
         <div className="relative mx-2 mt-1 flex-1 overflow-hidden rounded-md border border-[#E7B547]/60">
           <video
@@ -205,7 +205,7 @@ export function AttractHero({ onStart, sampleArt }: AttractHeroProps) {
       <motion.div className="relative z-10 text-center" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
         <p className="font-mono-nums text-[11px] uppercase tracking-[0.45em] text-[#E7B547]/80">DYP B-School · Dr. D. Y. Patil B-School, Pune</p>
         <h1
-          className="mt-2 text-6xl font-black tracking-wide sm:text-7xl"
+          className="mt-2 whitespace-nowrap text-[clamp(2rem,10vw,4.5rem)] font-black tracking-wide"
           style={{
             fontFamily: 'Cinzel, Georgia, serif',
             backgroundImage: 'linear-gradient(180deg, #FFF6D2 0%, #F1C766 40%, #9B6A16 55%, #F1C766 70%, #FFF1B8 100%)',
@@ -215,7 +215,7 @@ export function AttractHero({ onStart, sampleArt }: AttractHeroProps) {
             filter: 'drop-shadow(0 4px 18px rgba(231,181,71,0.45))',
           }}
         >
-          #DYPAICOE
+          #DYPBSAICOE
         </h1>
         <p className="mt-1 text-xl font-bold uppercase tracking-[0.3em] text-white/90" style={{ fontFamily: 'Cinzel, serif' }}>
           AI Power Cards

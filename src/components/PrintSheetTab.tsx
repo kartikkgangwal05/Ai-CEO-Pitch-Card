@@ -12,6 +12,8 @@ interface PrintSheetTabProps {
   history: VisitorCard[];
   onSelectCard: (card: VisitorCard) => void;
   onUpdateCard: (updated: VisitorCard) => void;
+  /** Open with the card editor already showing (from History's Edit button). */
+  startEditing?: boolean;
   onLoadSampleCohort: () => void;
   onGoToCreate: () => void;
 }
@@ -23,11 +25,12 @@ export function PrintSheetTab({
   onUpdateCard,
   onLoadSampleCohort,
   onGoToCreate,
+  startEditing = false,
 }: PrintSheetTabProps) {
   const activeCard = currentCard ?? history[0] ?? null;
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [modalInitialEdit, setModalInitialEdit] = useState(false);
-  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [isInlineEditing, setIsInlineEditing] = useState(startEditing);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   // Unsaved edits from the inline editor, shown live on the card.
   const [draftCard, setDraftCard] = useState<VisitorCard | null>(null);

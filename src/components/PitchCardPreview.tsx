@@ -70,7 +70,7 @@ export function PitchCardPreview({
       >
         <div className="bg-[#050C1B] px-6 py-4 border-b border-sky-400/25 flex items-center justify-between gap-2">
           <span className="text-sm font-semibold text-white tracking-tight">
-            Dr. D. Y. Patil B-School, Pune · #DYPAICoE
+            Dr. D. Y. Patil B-School, Pune · #DYPBSAICoE
           </span>
           <span className="text-xs font-mono-nums font-semibold text-[#00D4FF] tracking-wide whitespace-nowrap">
             {selectedSpecialisation} · 2.5 × 3.5 in

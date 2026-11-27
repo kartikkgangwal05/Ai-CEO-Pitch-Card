@@ -76,7 +76,7 @@ export function cardFileName(card: VisitorCard): string {
 
 export function shareText(card: VisitorCard): string {
   const title = card.title ? ` "${card.title}"` : '';
-  return `Here's my Power Card${title} (Founding Member #${memberNo(card)}) from the #DYPAICoE launch at Dr. D. Y. Patil B-School, Pune!`;
+  return `Here's my Power Card${title} (Founding Member #${memberNo(card)}) from the #DYPBSAICoE launch at Dr. D. Y. Patil B-School, Pune!`;
 }
 
 export function downloadBlob(blob: Blob, fileName: string) {

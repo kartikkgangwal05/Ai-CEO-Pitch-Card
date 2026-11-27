@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stylePreviewSvg } from './server/claudeArt.ts';
 import { offloadLargeImage, registerHistoryRoutes } from './server/historyStore.ts';
+import { sheetConfigured } from './server/sheetSync.ts';
 import type { ArtEngine } from './src/utils/claudeStyles.ts';
 import { STREAMS } from './src/utils/streams.ts';
 import { buildGeminiPrompt } from './server/portraitArt.ts';
@@ -200,6 +201,7 @@ export async function createApp() {
       aiConfigured: Boolean(getGeminiClient()),
       geminiConfigured: Boolean(getGeminiClient()),
       geminiStatus: geminiStatus(),
+      sheetConfigured: sheetConfigured(),
     });
   });
 

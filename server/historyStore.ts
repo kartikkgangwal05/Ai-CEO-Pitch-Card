@@ -5,6 +5,7 @@
 import { Readable } from 'node:stream';
 import type { Express, Request as Req, Response as Res } from 'express';
 import { del, get, list, put } from '@vercel/blob';
+import { sendToSheet, sheetConfigured } from './sheetSync.ts';
 
 const CARD_PREFIX = 'history/cards/';
 const IMG_PREFIX = 'history/img/';
@@ -134,9 +135,29 @@ export function registerHistoryRoutes(app: Express) {
     }
     if (typeof card.createdAt !== 'number') card.createdAt = Date.now();
     try {
-      res.json({ card: await saveCard(card) });
+      const saved = await saveCard(card);
+      // Copy the details to the Google Sheet (if set up); a sheet problem never blocks saving the card.
+      await sendToSheet([saved]);
+      res.json({ card: saved });
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : 'Could not save the card.' });
+    }
+  });
+
+  // Copies every saved card to the Google Sheet (for cards made before the sheet was connected).
+  app.post('/api/history/sheet-sync', async (_req: Req, res: Res) => {
+    if (!configured()) return notConfigured(res);
+    if (!sheetConfigured()) {
+      res.status(503).json({ error: 'Google Sheet is not connected: set SHEETS_WEBHOOK_URL in the Vercel project settings.' });
+      return;
+    }
+    try {
+      const cards = await listCards();
+      const ok = await sendToSheet(cards);
+      if (!ok) throw new Error('The Google Sheet did not accept the rows.');
+      res.json({ ok: true, count: cards.length });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Could not reach the Google Sheet.' });
     }
   });
 

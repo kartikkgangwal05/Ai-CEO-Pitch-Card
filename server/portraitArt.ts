@@ -41,14 +41,20 @@ const STREAM_LOOK: Record<Specialisation, { colour: string; prop: string; symbol
  * robe, a glowing spirit creature, and the real DYP B-School campus behind them at night. Applied to the
  * portrait only: the card frame and all text are drawn by the app so names are always spelled right.
  */
+/** Leadership cards are made for guests and faculty: they keep their own outfit (no robe or tie). */
+const keepsOwnClothes = (stream: Specialisation) => stream === 'Executive Leadership';
+
 function artBrief(stream: Specialisation, subject: string, campusImage: string, faithful = false): string {
   const look = STREAM_LOOK[stream] ?? STREAM_LOOK['Business Analytics'];
+  const ownClothes = faithful && keepsOwnClothes(stream);
   return [
     'Premium cinematic fantasy collectible trading-card artwork in a photorealistic style, like a high-end movie still with magical effects.',
     faithful
       ? `A half-body portrait of ${subject} in the centre, with the head, face angle and expression exactly as in the photo.`
       : `A half-body portrait of ${subject} in the exact centre, looking directly at the camera, straight-facing, confident.`,
-    `They wear an elegant black wizard robe with ${look.colour} lining and hood, a crisp white shirt and a plain solid ${look.colour} tie with no stripes.`,
+    ownClothes
+      ? 'They keep exactly the clothes they wear in the photo (same garments, colours and neckline): no robe, no cape, no tie, no costume added.'
+      : `They wear an elegant black wizard robe with ${look.colour} lining and hood, a crisp white shirt and a plain solid ${look.colour} tie with no stripes.`,
     `${look.prop}.`,
     `Behind one shoulder, ${look.spirit}, and around the character swirling ${look.colour} energy ribbons, glowing particles and ${look.symbols}.`,
     `Background: the building from ${campusImage}, the Dr. D. Y. Patil B-School PGDM campus, recreated at night in a dark, mysterious magical mood.`,
@@ -68,7 +74,9 @@ export function buildGeminiPrompt(stream: Specialisation): string {
     'Edit the first attached image, a real photo of a person. The second attached image is the campus building for the background.',
     "MOST IMPORTANT: this is a photo edit, not a new drawing. Keep the person's head, face and hair exactly as photographed, as if cut out of the original photo: same face shape, jawline, forehead, eyes (shape, size, spacing, colour), eyebrows, nose, lips, ears, skin tone and texture, moles or marks, age, hairline and hairstyle, facial hair, glasses and expression.",
     'Do not redraw, repaint, beautify, slim, smooth, sharpen into a different face, lighten or darken the skin, de-age, turn the head, change the expression or make the face more symmetrical. Friends and family must recognise the person instantly; if in doubt, change less.',
-    'Only the clothing below the neck, one raised hand, the magical effects, the lighting around the person and the background change.',
+    keepsOwnClothes(stream)
+      ? 'Keep their clothing exactly as photographed too. Only one raised hand, the magical effects, the lighting around the person and the background change.'
+      : 'Only the clothing below the neck, one raised hand, the magical effects, the lighting around the person and the background change.',
     artBrief(stream, 'the exact person in the first image', 'the second image', true),
     'Keep the face large and in sharp focus.',
     'Portrait orientation.',

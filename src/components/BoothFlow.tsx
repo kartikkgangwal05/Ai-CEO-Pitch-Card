@@ -299,7 +299,7 @@ export function BoothFlow({ onComplete, onOpenStudio, onOpenHistory, paused = fa
       {/* Top HUD bar */}
       <header className="relative z-30 flex items-center justify-between px-6 pt-5 font-mono-nums text-[11px] uppercase tracking-[0.3em] text-sky-300/80">
         <span>
-          <span className="text-[#00D4FF]">◆</span> Power//Card <span className="text-sky-500/60">· #DYPAICoE</span>
+          <span className="text-[#00D4FF]">◆</span> Power//Card <span className="text-sky-500/60">· #DYPBSAICoE</span>
         </span>
         {step !== 'attract' ? (
           <ol className="hidden items-center gap-3 sm:flex">

@@ -1,4 +1,4 @@
-# Power Card Studio (#DYPAICoE)
+# Power Card Studio (#DYPBSAICoE)
 
 Snap a photo → AI turns it into a cartoon → get a funny trading-style **power card** at real
 **playing-card size, 63.5 × 88.9 mm (2.5 × 3.5 in)**:
@@ -58,7 +58,7 @@ floating stream icons. Gemini writes a wizard-style title themed on the stream, 
 
 ## Booth flow (current)
 
-Start screen (#DYPAICOE hero with sample stream cards and the live camera card) → **Name** → **Stream**
+Start screen (#DYPBSAICOE hero with sample stream cards and the live camera card) → **Name** → **Stream**
 (HR, BA, Finance, Marketing, Leadership) → **Face scan** → **Powers** (the Gemini portrait is painted in the
 background with a themed progress loader) → **Create my card** → reveal.
 

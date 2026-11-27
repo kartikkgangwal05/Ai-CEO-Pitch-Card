@@ -28,7 +28,7 @@ export const SPECIALISATIONS: readonly Specialisation[] = [
 
 export const TONES: readonly Tone[] = ['Confident', 'Friendly', 'Formal'];
 
-export const EXACT_SYSTEM_PROMPT = `You write the text for funny, printable trading-style "power cards" handed out at the #DYPAICoE launch event.
+export const EXACT_SYSTEM_PROMPT = `You write the text for funny, printable trading-style "power cards" handed out at the #DYPBSAICoE launch event.
 Tone: playful, witty, warm. Roast gently so the person laughs and wants to keep the card.
 Never mock appearance, body, age, gender, religion, caste, ethnicity or anything sensitive. No profanity.
 Never reference Harry Potter or any franchise: no Hogwarts, Gryffindor, Slytherin, Ravenclaw, Hufflepuff, Muggle, Quidditch, Patronus, Horcrux, Sorting, Dumbledore, Voldemort, or named spells like Accio, Expelliarmus, Lumos. Keep any magic flavour original.
@@ -509,7 +509,7 @@ const MOTIVATIONAL_TEMPLATES: readonly ((role: string, firstName: string) => str
   (role) => `Your insight is your edge; bring structured conviction to every ${role} conversation.`,
   (role, firstName) => `${firstName}, great ${role} leaders turn complex challenges into calm clarity.`,
   (role) => `Speak with proof, listen with intent, and build your signature in ${role}.`,
-  (role, firstName) => `Every conversation at #DYPAICoE sparks a bold chapter — lead forward, ${firstName}.`,
+  (role, firstName) => `Every conversation at #DYPBSAICoE sparks a bold chapter — lead forward, ${firstName}.`,
   (role) => `Discipline beats noise: let clarity and integrity power your ${role} impact.`,
   (role, firstName) => `${firstName}, pair curiosity with commercial rigor and the ${role} frontier is yours.`,
   (role) => `Real outcomes speak loudest — walk into every room ready to build.`,
@@ -925,7 +925,7 @@ export function formatQrPlainText(
     card.pitch.trim(),
     '',
     `Motivational: "${card.motivationalLine.trim()}"`,
-    '#DYPAICoE | Dr. D. Y. Patil B-School, Pune'
+    '#DYPBSAICoE | Dr. D. Y. Patil B-School, Pune'
   );
 
   return lines.join('\n');

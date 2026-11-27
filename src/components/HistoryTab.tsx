@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { memberNo } from '../utils/foundingMember';
-import { Download, Eye, Image as ImageIcon, Layers, Printer, Search, Trash2, Upload, X } from 'lucide-react';
+import { Download, Eye, FileSpreadsheet, Pencil, Image as ImageIcon, Layers, Printer, Search, Trash2, Upload, X } from 'lucide-react';
 import type { VisitorCard } from '../types/pitch';
 import { downloadBlob } from '../utils/cardExport';
 import { exportHistoryJson, importHistoryJson } from '../utils/cardHistory';
@@ -15,6 +15,8 @@ interface HistoryTabProps {
   offline?: boolean;
   onShow: (card: VisitorCard) => void;
   onPrint: (card: VisitorCard) => void;
+  /** Opens the card in Edit & Print with the editor showing. */
+  onEdit?: (card: VisitorCard) => void;
   onDelete: (card: VisitorCard) => void;
   onImported: () => void;
 }
@@ -24,16 +26,60 @@ const PREVIEW_W = 356;
 const TILE_W = 220;
 const SCALE = TILE_W / PREVIEW_W;
 
+const EXCEL_COLUMNS: [string, (c: VisitorCard) => string][] = [
+  ['Created', (c) => new Date(c.createdAt).toLocaleString('en-IN')],
+  ['Member No', (c) => memberNo(c)],
+  ['Name', (c) => c.name],
+  ['Specialisation', (c) => c.specialisation],
+  ['Visitor Type', (c) => c.visitorType],
+  ['Position', (c) => c.currentPosition],
+  ['Card Title', (c) => c.title],
+  ['Strength', (c) => c.strength1],
+  ['Weakness', (c) => c.weakness],
+  ['Hobby', (c) => c.hobby],
+];
+
+/** All cards as a CSV that opens directly in Excel (UTF-8 with BOM so names keep their characters). */
+function cardsCsv(cards: VisitorCard[]): Blob {
+  const cell = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [
+    EXCEL_COLUMNS.map(([h]) => cell(h)).join(','),
+    ...cards.map((c) => EXCEL_COLUMNS.map(([, get]) => cell(get(c))).join(',')),
+  ];
+  return new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+}
+
 function formatWhen(ms: number) {
   return new Date(ms).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-export function HistoryTab({ cards, loading, error, offline = false, onShow, onPrint, onDelete, onImported }: HistoryTabProps) {
+export function HistoryTab({ cards, loading, error, offline = false, onShow, onPrint, onEdit, onDelete, onImported }: HistoryTabProps) {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'cards' | 'photos'>('cards');
   const [photo, setPhoto] = useState<VisitorCard | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [sheetOn, setSheetOn] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  useEffect(() => {
+    fetch('/api/health')
+      .then((r) => r.json())
+      .then((h: { sheetConfigured?: boolean }) => setSheetOn(Boolean(h.sheetConfigured)))
+      .catch(() => {});
+  }, []);
+
+  const handleSheetSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/history/sheet-sync', { method: 'POST' });
+      const p = (await res.json().catch(() => ({}))) as { count?: number; error?: string };
+      setNotice(res.ok ? `Sent ${p.count ?? 0} cards to the Google Sheet.` : (p.error ?? `Google Sheet sync failed (HTTP ${res.status}).`));
+    } catch {
+      setNotice('Could not reach the server for the Google Sheet sync.');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -101,6 +147,27 @@ export function HistoryTab({ cards, loading, error, offline = false, onShow, onP
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            data-testid="history-excel-btn"
+            onClick={() => downloadBlob(cardsCsv(cards), `power-cards-${new Date().toISOString().slice(0, 10)}.csv`)}
+            disabled={cards.length === 0}
+            title="Download name, specialisation and details of every card as an Excel sheet"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/50 bg-[#040A17] hover:bg-[#0D1E42] disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 cursor-pointer"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" /> Excel
+          </button>
+          {sheetOn && (
+            <button
+              type="button"
+              onClick={() => void handleSheetSync()}
+              disabled={syncing || cards.length === 0}
+              title="Copy every card's details to the connected Google Sheet"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/50 bg-[#040A17] hover:bg-[#0D1E42] disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 cursor-pointer"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" /> {syncing ? 'Sending…' : 'Sync Google Sheet'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void handleExport()}
@@ -200,6 +267,15 @@ export function HistoryTab({ cards, loading, error, offline = false, onShow, onP
                 >
                   <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Print
                 </button>
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(card)}
+                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-sky-400/40 px-2 py-1.5 text-[11px] font-bold text-white hover:bg-[#0D1E42] cursor-pointer"
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onDelete(card)}
